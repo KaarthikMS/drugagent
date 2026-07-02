@@ -1,3 +1,17 @@
 {
-  "targets": {}
+  "targets": {
+    "default": {
+      "resources": {
+        "runtimes": {
+          "drugagent": {
+            "runtimeId": "pharmaagent_drugagent-IbZZTt2EEG",
+            "runtimeArn": "arn:aws:bedrock-agentcore:ap-south-1:668426476778:runtime/pharmaagent_drugagent-IbZZTt2EEG",
+            "roleArn": "arn:aws:iam::668426476778:role/AgentCore-pharmaagent-def-ApplicationAgentDrugagent-IgAMvcHjDVyk"
+          }
+        },
+        "stackName": "AgentCore-pharmaagent-default",
+        "deployHash": "61fa00947f21559b"
+      }
+    }
+  }
 }
