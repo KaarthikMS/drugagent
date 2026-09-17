@@ -1,104 +1,181 @@
-# AgentCore Project
+# PharmaAgent — Internal Health Assistant
 
-This project was created with the [AgentCore CLI](https://github.com/aws/agentcore-cli).
+An AI health assistant for employees, built on **Amazon Bedrock AgentCore**.
 
-## Project Structure
+Staff ask questions about medications in plain language and get answers grounded in
+official FDA drug labelling — with citations, and with a deterministic safety gate
+that escalates anything clinically serious to a real clinician.
+
+> **Not a medical device and not a substitute for professional care.**
+> Informational support only. Every medium-or-higher severity response directs the
+> user to qualified medical advice.
+
+---
+
+## Status
+
+| | |
+|---|---|
+| Phase | **v1 — in development** |
+| Branch | `feat/v1-health-assistant` |
+| Region | `ap-south-1` |
+| Runtime | AgentCore Runtime (CodeZip, Python) |
+
+## Scope
+
+**v1 — in progress**
+- Drug information: what a drug is, indications, dosage, class
+- Drug–drug interactions, grounded in both products' labels
+- Toxicity: boxed warnings, contraindications, overdose information
+- Cognito authentication, per-user conversation memory
+- Severity triage with escalation to professional advice
+
+**v2 — planned.** Symptom and condition Q&A. Needs a different grounding corpus
+(drug labels do not describe conditions) and introduces vector retrieval.
+
+**v3 — deferred.** Lab report interpretation.
+
+---
+
+## How it works
+
+```mermaid
+flowchart TD
+    U["Employee"] --> FE["Web frontend<br/>Cognito login"]
+    FE -->|JWT| GW["API Gateway<br/>JWT authorizer"]
+    GW --> G1
+
+    subgraph RT["AgentCore Runtime"]
+        direction TB
+        G1["1 · Guardrails — PII redaction, scope check"]
+        M1["2 · Memory load — scoped to user"]
+        AG["3 · Agent — Strands, single agent"]
+        SEV["4 · Severity gate — deterministic Python"]
+        M2["5 · Memory write — distilled, no raw PHI"]
+        G1 --> M1 --> AG --> SEV --> M2
+    end
+
+    AG -.-> T1["drug_normalize"]
+    AG -.-> T2["drug_label_lookup"]
+    AG -.-> T3["interaction_check"]
+
+    T1 -.-> RX["RxNorm API"]
+    T2 -.-> FDA["openFDA label API"]
+    T3 -.-> FDA
+
+    M2 --> RESP["Answer + citations<br/>+ escalation if needed"]
+```
+
+Full detail in [`docs/architecture.md`](docs/architecture.md) and
+[`docs/dataflow.md`](docs/dataflow.md).
+
+---
+
+## Data sources
+
+Both are free, public, US-government-operated, and require no API key for
+development volumes.
+
+| Source | Used for | Endpoint |
+|---|---|---|
+| **RxNorm** (NIH/NLM) | Name normalisation — brand→generic, misspellings, ingredient→product IDs | `rxnav.nlm.nih.gov/REST` |
+| **openFDA** (FDA) | Drug label text — the actual grounding content | `api.fda.gov/drug/label.json` |
+
+### Why not the RxNav interaction API
+
+It was retired. Verified:
 
 ```
-my-project/
-├── AGENTS.md               # AI coding assistant context
-├── agentcore/
-│   ├── agentcore.json      # Project config (agents, memories, credentials, gateways, evaluators)
-│   ├── aws-targets.json    # Deployment targets (account + region)
-│   ├── .env.local          # Secrets — API keys (gitignored)
-│   ├── .llm-context/       # TypeScript type definitions for AI assistants
-│   │   ├── agentcore.ts    # AgentCoreProjectSpec types
-│   │   ├── aws-targets.ts  # Deployment target types
-│   │   └── mcp.ts          # Gateway and MCP tool types
-│   └── cdk/                # CDK infrastructure (@aws/agentcore-cdk)
-├── app/                    # Agent application code
-└── evaluators/             # Custom evaluator code (if any)
+GET https://rxnav.nlm.nih.gov/REST/interaction/interaction.json?rxcui=11289
+→ HTTP 404 Not found
 ```
 
-## Getting Started
+There is no free structured drug-interaction database. Interactions are therefore
+derived from **label text in both directions** — see
+[`docs/architecture.md`](docs/architecture.md#interaction-checking).
 
-### Prerequisites
+### The rxcui join
 
-- **Node.js** 20.x or later
-- **Python 3.10+** and **uv** for Python agents ([install uv](https://docs.astral.sh/uv/getting-started/installation/))
-- **AWS credentials** configured (`aws configure` or environment variables)
-- **Docker** (only for Container build agents)
+RxNorm returns *ingredient*-level concept IDs. openFDA labels carry *product*-level
+ones. They do not match, and joining them naively returns zero results for every
+drug — a silent total failure.
 
-### Development
+```
+warfarin → RxNorm ingredient rxcui        11289
+           openfda.rxcui:11289            → NO MATCH
+           /rxcui/11289/related.json?tty=SCD
+                                          → 855288, 855296, 855302 …
+           openfda.rxcui:855288           → MATCH
+```
 
-Run your agent locally:
+Always resolve ingredient → SCD products before querying openFDA.
+
+---
+
+## Safety model
+
+Safety is enforced in **deterministic Python**, never by prompt instruction alone.
+A prompt that says "be careful" fails silently and unmeasurably; code that returns a
+typed flag fails loudly and is unit-testable.
+
+| Control | Where | Why there |
+|---|---|---|
+| PII/PHI redaction | Bedrock Guardrails, input | Before model or memory sees it |
+| Emergency keyword tripwire | Python, pre-model | Must fire even if the model misclassifies |
+| Severity classification | Model output, typed enum | Structured, therefore testable |
+| Escalation block | Python, post-model | Appended by code, not left to the prompt |
+| "Not documented ≠ safe" | Python, post-tool | The single most dangerous confusion in this domain |
+| No prompt text in logs | Logging layer | Health questions must not land in CloudWatch |
+
+### Handling of personal data
+
+- Prompts are **never** written to logs. Logs carry event IDs, intents, latencies, metrics.
+- Memory is scoped per user (Cognito `sub`) with a bounded TTL.
+- Memory stores **distilled context**, not raw message text.
+- No organisation-wide view of individual users' questions exists, by design.
+
+---
+
+## Repository layout
+
+```
+pharmaagent/
+├── agentcore/              AWS configuration and infrastructure
+│   ├── agentcore.json      Declarative resource spec — source of truth
+│   ├── aws-targets.json    Deployment target (account + region)
+│   └── cdk/                CDK stack (@aws/agentcore-cdk L3 constructs)
+├── app/drugagent/          Agent application code
+├── docs/                   Architecture, dataflow, implementation plan
+└── frontend/               React client (v1, not yet built)
+```
+
+`agentcore/*.json` is the source of truth. Do not change agent behaviour by editing
+generated CDK code. See [`AGENTS.md`](AGENTS.md).
+
+---
+
+## Development
+
+Prerequisites: Node.js 20+, Python 3.10+, [uv](https://docs.astral.sh/uv/), AWS credentials.
 
 ```bash
-agentcore dev
+agentcore dev       # run locally with hot reload
+agentcore invoke    # send a test request
+agentcore validate  # check configuration
+agentcore deploy    # deploy to AWS
+agentcore logs      # view logs
+agentcore traces    # view traces
 ```
 
-### Deployment
+## Observability
 
-Deploy to AWS:
-
-```bash
-agentcore deploy
-```
-
-## Commands
-
-| Command | Description |
-| --- | --- |
-| `agentcore create` | Create a new AgentCore project |
-| `agentcore add` | Add resources (agent, memory, credential, gateway, evaluator, policy) |
-| `agentcore remove` | Remove resources |
-| `agentcore dev` | Run agent locally with hot-reload |
-| `agentcore deploy` | Deploy to AWS via CDK |
-| `agentcore status` | Show deployment status |
-| `agentcore invoke` | Invoke agent (local or deployed) |
-| `agentcore logs` | View agent logs |
-| `agentcore traces` | View agent traces |
-| `agentcore eval` | Run evaluations |
-| `agentcore package` | Package agent artifacts |
-| `agentcore validate` | Validate configuration |
-| `agentcore pause` | Pause a deployed agent |
-| `agentcore resume` | Resume a paused agent |
-| `agentcore fetch` | Fetch remote resource definitions |
-| `agentcore import` | Import existing resources |
-| `agentcore update` | Check for CLI updates |
-
-## Configuration
-
-Edit the JSON files in `agentcore/` to configure your project. See `agentcore/.llm-context/` for type definitions and validation constraints.
-
-The project uses a **flat resource model** — agents, memories, credentials, gateways, evaluators, and policies are top-level arrays in `agentcore.json`. Resources are independent; agents discover memories and credentials at runtime via environment variables or SDK calls.
-
-## Resources
-
-| Resource | Purpose |
-| --- | --- |
-| Agent (runtime) | HTTP, MCP, or A2A agent deployed to AgentCore Runtime |
-| Memory | Persistent context storage with configurable strategies |
-| Credential | API key or OAuth credential providers |
-| Gateway | MCP gateway that routes tool calls to targets |
-| Gateway Target | Tool implementation (Lambda, MCP server, OpenAPI, Smithy, API Gateway) |
-| Evaluator | Custom LLM-as-a-Judge or code-based evaluation |
-| Online Eval Config | Continuous evaluation pipeline for deployed agents |
-| Policy | Cedar authorization policies for gateway tools |
-
-### Agent Types
-
-- **Template agents**: Created from framework templates (Strands, LangChain/LangGraph, GoogleADK, OpenAI Agents, Autogen)
-- **BYO agents**: Bring your own code with `agentcore add agent --type byo`
-- **Import agents**: Import existing Bedrock agents with `agentcore import`
-
-### Build Types
-
-- **CodeZip**: Python source packaged as a zip and deployed directly to AgentCore Runtime
-- **Container**: Docker image built via CodeBuild (ARM64), pushed to ECR, and deployed to AgentCore Runtime
+OpenTelemetry spans and metrics, plus CloudWatch metrics, at every layer — request,
+agent, tool, and upstream API. A CloudWatch dashboard is defined in
+`agentcore/cdk/lib/observability-dashboard.ts`.
 
 ## Documentation
 
-- [AgentCore CLI](https://github.com/aws/agentcore-cli)
-- [AgentCore CDK Constructs](https://github.com/aws/agentcore-l3-cdk-constructs)
-- [Amazon Bedrock AgentCore](https://aws.amazon.com/bedrock/agentcore/)
+- [Architecture and design decisions](docs/architecture.md)
+- [Data flow](docs/dataflow.md)
+- [Implementation plan](docs/implementation-plan.md)
+- [AgentCore project conventions](AGENTS.md)
