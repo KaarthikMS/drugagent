@@ -5,7 +5,9 @@ import {
   type AgentCoreMcpSpec,
 } from '@aws/agentcore-cdk';
 import { CfnOutput, Stack, type StackProps } from 'aws-cdk-lib';
+import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
+import { ObservabilityDashboard } from './observability-dashboard';
 
 export interface AgentCoreStackProps extends StackProps {
   /**
@@ -40,6 +42,22 @@ export class AgentCoreStack extends Stack {
     // Create AgentCoreApplication with all agents
     this.application = new AgentCoreApplication(this, 'Application', {
       spec,
+    });
+
+    // Grant cloudwatch:PutMetricData permissions to the drugagent runtime execution role
+    const drugAgentEnv = this.application.environments.get('drugagent');
+    if (drugAgentEnv) {
+      drugAgentEnv.runtime.addToPolicy(
+        new PolicyStatement({
+          actions: ['cloudwatch:PutMetricData'],
+          resources: ['*'],
+        })
+      );
+    }
+
+    // Instantiate custom observability dashboard
+    new ObservabilityDashboard(this, 'ObservabilityDashboard', {
+      projectName: spec.name,
     });
 
     // Create AgentCoreMcp if there are gateways configured

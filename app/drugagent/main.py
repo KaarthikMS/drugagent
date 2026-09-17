@@ -28,6 +28,7 @@ async def invoke(payload, context):
     request_counter.add(1)
     active_sessions.add(1)
     cw_metrics.put_metric("AgentRequests", 1)
+    cw_metrics.put_metric("ActiveSessions", 1)
     start = time.perf_counter()
     logger.info(f"Incoming request: {prompt}")
 
@@ -54,6 +55,7 @@ async def invoke(payload, context):
             elapsed = (time.perf_counter() - start) * 1000
             request_latency.record(elapsed)
             active_sessions.add(-1)
+            cw_metrics.put_metric("ActiveSessions", 0)
             cw_metrics.put_metric("AgentLatency", elapsed, unit="Milliseconds")
             logger.info(f"Request completed in {elapsed:.2f} ms")
 
