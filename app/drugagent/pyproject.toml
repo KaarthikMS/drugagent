@@ -14,7 +14,10 @@ dependencies = [
     "botocore[crt] >= 1.35.0",
     "mcp >= 1.19.0",
     "strands-agents[otel]>=1.13.0",
-    "requests>=2.32.0",
+    # Async HTTP. Replaces `requests`: sync calls inside the async
+    # entrypoint block the event loop and serialise every request.
+    "httpx>=0.27.0",
+    "tenacity>=9.0.0",
     # OpenTelemetry
     "opentelemetry-api>=1.36.0",
     "opentelemetry-sdk>=1.36.0",
