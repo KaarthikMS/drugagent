@@ -170,27 +170,49 @@ Pure functions. No network. The heart of the system.
 
 | # | File | Contains | Your call |
 |---|---|---|---|
-| 6 | `domain/models.py` | `DrugRef`, `LabelSection`, `InteractionResult`, `Analyte`, `Severity`, `AgentResponse` | — |
-| 7 | `domain/severity.py` | Enum, tripwire list, max-wins combination, escalation text | **tripwire phrases, escalation wording** |
-| 8 | `domain/interactions.py` | Bidirectional cross-check, name + ingredient + class matching | — |
-| 9 | `domain/triage.py` | Symptom red-flag ruleset | **the rules themselves** |
-| 10 | `domain/units.py` | Unit conversion table, unreconcilable → error | — |
-| 11 | `domain/labs.py` | Row parsing, printed-range extraction, comparison, unparsed collection | **critical-value thresholds** |
+| 6 | `domain/models.py` | Typed vocabulary; `Severity`, `Analyte`, `InteractionResult`, `Citation` | ✓ |
+| 7 | `domain/severity.py` | 9 tripwires, max-wins combination, escalation text | ✓ |
+| 8 | `domain/interactions.py` | Bidirectional cross-check; class, ingredient and name matching | ✓ |
+| 9 | `domain/triage.py` | 11-rule symptom red-flag ruleset | ✓ |
+| 10 | `domain/units.py` | Unit normalisation; mass/molar conversion refused | ✓ |
+| 11 | `domain/labs.py` | Row parsing, printed ranges, comparison, unparsed collection | ✓ |
+| 12 | `domain/brands.py` | 45 Indian brands → US generic ingredients (D14) | ✓ |
 
-Items marked *your call* are where domain judgement beats implementation speed. The
-file, the signature, the tests and the surrounding code will be in place; you write
-the rules. A clinician should review `triage.py` and the critical-value thresholds
-before this reaches a real user.
+**Clinical review required before real users**, on four things a clinician can read
+directly because none of them is a prompt:
 
-**Exit criteria, all with no network and no model:**
+| Item | Where | Risk if wrong |
+|---|---|---|
+| Tripwire patterns | `severity.py` TRIPWIRES | A missed emergency presentation |
+| Triage rules and thresholds | `triage.py` RULES | Same, with duration and combination |
+| `CRITICAL_RANGE_MULTIPLE` | `labs.py` | A heuristic standing in for per-analyte critical values |
+| Brand map, especially combinations | `brands.py` | Collapsing Combiflam to one ingredient halves an interaction check |
 
-- warfarin/aspirin fixture → `documented: true`; metformin/aspirin → `documented: false`
-- "sudden severe headache" → `EMERGENCY` floor; "headache for 3 days" → `LOW`
-- a fixture lab row with a printed range flags correctly; a row with a mismatched unit
-  returns "could not be verified"; an unparseable row appears in `unparsed`
-- `max_severity()` is exhaustive over every combination of inputs
+Escalation wording and the emergency number (`112`, India) also warrant a read.
 
-This is the step where the project succeeds or fails. Everything else is plumbing.
+**Status: complete.** 167 unit tests, no network, no model, no credentials, 0.35s.
+
+Every exit criterion met:
+
+- warfarin/aspirin → `documented: true`; metformin/aspirin → `documented: false`
+- "sudden severe headache" → `EMERGENCY`; "headache for 3 days" → `LOW`
+- a printed range flags correctly; a mismatched unit returns "could not be verified";
+  an unparseable row appears in `unparsed`
+- `max_severity()` is exhaustive over all 25 pairs, not a sample
+
+Three defects this step found in itself:
+
+| Defect | How it surfaced |
+|---|---|
+| `Severity` inherited **string** comparison from its `str` mixin, so `>` and `>=` answered alphabetically — `should_escalate()` would have refused to escalate an emergency | ordering test |
+| `NOT_DOCUMENTED_MESSAGE` contained the word "safe" (in a negating clause, but still in front of a skimming reader) | vocabulary-ban test |
+| `parse_row` could have dropped lines it did not understand | "every line lands somewhere" test |
+
+The first is the one worth remembering. Four comparison operators are defined on
+`Severity` and the comment explains why: defining only `__lt__`/`__le__` leaves `>`
+falling back to `str`, where `"emergency" > "high"` is False. `functools.total_ordering`
+does not help, because it only fills in operators the class does not already have and
+`str` supplies all of them.
 
 ---
 
