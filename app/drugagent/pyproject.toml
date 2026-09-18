@@ -27,3 +27,33 @@ dependencies = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]
+
+[tool.ruff]
+# Legacy modules awaiting removal (see docs/implementation-plan.md step 0).
+# Excluded rather than fixed: linting code that is about to be deleted
+# produces a clean diff for files nobody will read again.
+exclude = [
+    "agents",
+    "mcp_client",
+    "orchestrator",
+    "prompts",
+    "services",
+    "tools",
+]
+
+[tool.pytest.ini_options]
+# Tests import `clients`, `config`, `domain` as top-level modules, the
+# same way the deployed entrypoint does. Rooting pytest here keeps the
+# import path identical between test and runtime.
+pythonpath = ["."]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "smoke: hits a real public API over the network (deselect with -m 'not smoke')",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+]

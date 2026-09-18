@@ -152,13 +152,51 @@ SECTION_GERIATRIC: Final = "geriatric_use"
 # model has no basis for the answer and will fall back on its own
 # recall; too many and every query pays for text nobody reads.
 #
-# TODO(kaarthick): fill these in. See the discussion in chat.
+# The rule applied below: include a section when its ABSENCE would make
+# the answer unsafe, not when its presence would make it richer.
+#
+# boxed_warning appears in all three. It is the most serious warning a
+# label carries, it is short, and an answer that omits it while quoting
+# the same label is an answer that looks complete and is not.
+#
+# Deliberately excluded: `description` and `mechanism_of_action` (large,
+# and pharmacology no employee asked for), `pregnancy`, `pediatric_use`
+# and `geriatric_use` (retrieved on demand when the question raises
+# them, not paid for on every query).
 # --------------------------------------------------------------------
 
 SECTION_PRESETS: Final[dict[str, tuple[str, ...]]] = {
-    "drug_info": (),
-    "toxicity": (),
-    "interaction": (),
+    # "What is metformin for, and how is it taken?"
+    # Contraindications included because "what is it used for" and "may
+    # I use it" are one question in the user's head, and the answer that
+    # covers only the first invites the second to be assumed.
+    "drug_info": (
+        SECTION_BOXED_WARNING,
+        SECTION_INDICATIONS,
+        SECTION_DOSAGE,
+        SECTION_CONTRAINDICATIONS,
+    ),
+    # "What happens if I take too much?"
+    # adverse_reactions is the largest section on most labels and is
+    # included anyway: overdose questions are answered by what the drug
+    # does in excess, and `overdosage` alone is thin on OTC labels --
+    # acetaminophen's runs to 243 characters (see probes/FINDINGS.md).
+    "toxicity": (
+        SECTION_BOXED_WARNING,
+        SECTION_OVERDOSAGE,
+        SECTION_WARNINGS,
+        SECTION_ADVERSE,
+    ),
+    # "Can I take these together?"
+    # Narrow on purpose. Two labels are fetched per query and
+    # drug_interactions alone runs to ~6,500 characters each, so this
+    # preset is the one that most needs span extraction rather than
+    # whole sections.
+    "interaction": (
+        SECTION_BOXED_WARNING,
+        SECTION_INTERACTIONS,
+        SECTION_CONTRAINDICATIONS,
+    ),
 }
 
 # --------------------------------------------------------------------

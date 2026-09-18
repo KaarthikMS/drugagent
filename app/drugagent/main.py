@@ -1,6 +1,17 @@
 import time
+
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
-from observability import logger, tracer, request_counter, success_counter, failure_counter, request_latency, active_sessions, cw_metrics
+
+from observability import (
+    active_sessions,
+    cw_metrics,
+    failure_counter,
+    logger,
+    request_counter,
+    request_latency,
+    success_counter,
+    tracer,
+)
 
 app = BedrockAgentCoreApp()
 log = app.logger
@@ -18,9 +29,11 @@ def get_orchestrator():
 
     return _orchestrator
 
+
 # --------------------------------------------------------------------
 # Agent Entry Point
 # --------------------------------------------------------------------
+
 
 @app.entrypoint
 async def invoke(payload, context):

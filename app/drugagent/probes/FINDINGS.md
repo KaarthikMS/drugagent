@@ -23,10 +23,12 @@ RxNorm probe
                                         observed: rxnormId=['202421']
 [PASS] misspelling handling             exact fails; approximateTerm recovers 'metformin'
                                         observed: exact=[] approx_top={'rxcui': '6809', 'rxaui': '10328664', 'score': '8.183039665222168', 'rank': '1', 'source': 'GS'}
+[PASS] rxcui -> canonical name          properties.json (plural) returns name=metformin
+                                        observed: name='metformin'
 [PASS] ingredient -> SCD products (D4)  11289 expands to product rxcuis incl. 855288
                                         observed: 10 products, first 3 = ['855288', '855296', '855302']
 ==============================================================================
-5/5 passed
+6/6 passed
 
 
 RxClass probe
@@ -138,10 +140,16 @@ Two sources exist because of what the probes found, not because they were planne
 - **RxClass** — replaced a hand-maintained drug-class table. A local table goes stale
   silently, and its staleness surfaces as a *missed interaction*, not a failing test.
 
-One probe failed on its first run and was right to. The GHS-absent control used water,
-assuming a harmless compound carries no hazard data. Water has a full GHS record.
-Replaced with hydrotalcite (CID 71749): a real antacid with a PUG-REST record and a
-404 on the hazard heading.
+Two probes were wrong on their first run, and both were more useful for it:
+
+- The GHS-absent control used water, assuming a harmless compound carries no hazard
+  data. Water has a full GHS record. Replaced with hydrotalcite (CID 71749): a real
+  antacid with a PUG-REST record and a 404 on the hazard heading.
+- `probe_concept_name` did not exist until a client had already been written against
+  a guessed URL. `property.json?propName=RxNormName` reads more precisely than
+  `properties.json` and returns HTTP 400. The guess passed code review and unit tests
+  and was caught by a live smoke test — which is the argument for probing an endpoint
+  *before* relying on it.
 
 ## Traps the clients must handle
 
@@ -149,6 +157,8 @@ Replaced with hydrotalcite (CID 71749): a real antacid with a PUG-REST record an
 |---|---|---|
 | "Not found" is HTTP 200 with an empty body | RxNorm, RxClass, MedlinePlus, Clinical Tables | Missing key read as success |
 | `relaSource` unpinned mixes MED-RT relations with classes | RxClass | Warfarin "classed" as *Alcoholism* |
+| `approximateTerm` score is unbounded, not 0–100 | RxNorm | A fixed threshold rejects every real typo |
+| A different drug can out-score a real typo | RxNorm | `prednisone→prednisolone` 0.909 beats `metfrmn→metformin` 0.875 |
 | `CanonicalSMILES` silently renamed `ConnectivitySMILES` | PubChem | `KeyError` on an HTTP 200 |
 | Response is a positional array, no field names | Clinical Tables | Index-based parsing, undocumented |
 | Search results carry `<span class="qt0">` markup | MedlinePlus | Markup reaches the answer text |

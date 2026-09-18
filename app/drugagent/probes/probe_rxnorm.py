@@ -96,6 +96,26 @@ async def probe_misspelling(client: HttpClient) -> Check:
     )
 
 
+async def probe_concept_name(client: HttpClient) -> Check:
+    """Which endpoint returns the canonical name for an rxcui?
+
+    Added after the client was written against a guessed URL. The
+    singular `property.json?propName=RxNormName` reads more precisely
+    and answers HTTP 400; `properties.json` is the one that works. The
+    guess survived code review and unit tests, and was caught by a smoke
+    test -- which is the argument for probing an endpoint before relying
+    on it, not after.
+    """
+    data = await client.get_json(f"{RXNORM_BASE_URL}/rxcui/6809/properties.json")
+    name = ((data or {}).get("properties") or {}).get("name")
+    return Check(
+        name="rxcui -> canonical name",
+        expectation="properties.json (plural) returns name=metformin",
+        passed=name == "metformin",
+        observed=f"name={name!r}",
+    )
+
+
 async def probe_scd_hop(client: HttpClient) -> Check:
     """The two-hop join (architecture D4).
 
@@ -138,6 +158,7 @@ if __name__ == "__main__":
                 probe_nonsense_control,
                 probe_brand_to_generic,
                 probe_misspelling,
+                probe_concept_name,
                 probe_scd_hop,
             ],
         )
