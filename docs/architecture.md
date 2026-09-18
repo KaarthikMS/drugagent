@@ -466,6 +466,45 @@ relations alongside genuine classes -- warfarin comes back "classed" as
 check produces confident nonsense. The client requests ATC, deliberately,
 and treats anything else as a separate question.
 
+### D16 — A fuzzy name match is confirmed by the user, never by a threshold
+
+**Chosen:** an approximate match is returned flagged, and the caller asks
+the user before using it.
+**Rejected:** accepting a match above a similarity or confidence score.
+
+The first implementation used RxNorm's own `approximateTerm` score with a
+threshold. That failed immediately: the score is unbounded and scales
+with term length -- `warfarin` scores 12.06, `metformn` 8.18 -- so any
+fixed number is meaningless.
+
+Measuring string similarity instead does not rescue the idea:
+
+```
+0.909  prednisone -> prednisolone   DIFFERENT DRUG
+0.875  metfrmn    -> metformin      typo
+```
+
+A genuinely different drug scores **higher** than a real typo. Prednisone
+and prednisolone differ in potency; losartan and valsartan are different
+molecules. No threshold separates those cases, because the information
+needed to separate them is not in the string. Tuning the number moves the
+errors around; it never removes them.
+
+So the gate is a question. `DrugRef.requires_confirmation` is set on every
+approximate match, and the tool asks: *"Did you mean metformin?"* Asking
+costs one turn. Being wrong answers a question about a medicine the user
+is not taking, in language that sounds certain.
+
+RxNorm already does the coarse filtering -- genuine nonsense returns no
+candidates at all -- so the similarity check that remains exists only to
+discard absurd suggestions, and is documented as not being a safety
+control.
+
+> The transferable question: *does the information needed to make this
+> decision exist in the data I am measuring?* If it does not, no
+> threshold over that data will work, and the decision belongs to
+> someone who has the missing information. Here that is the user.
+
 ---
 
 ## 5. Interaction checking
@@ -632,9 +671,10 @@ Python, not in the prompt.
 | 14 | Source jurisdiction stated (D14) | Python, response assembly | yes |
 | 15 | Unmapped brand reported, never guessed | Python, `domain/brands.py` | yes |
 | 16 | Weak LOINC match attaches no description | Python, `domain/labs.py` | yes |
-| 17 | Content excluded from logs | Logging layer | yes |
-| 18 | Uploaded file deletion | Pipeline + S3 lifecycle | yes |
-| 19 | Memory scoping and TTL | Memory config | yes |
+| 17 | Fuzzy drug-name match confirmed by the user (D16) | Python, `clients/rxnorm.py` | yes |
+| 18 | Content excluded from logs | Logging layer | yes |
+| 19 | Uploaded file deletion | Pipeline + S3 lifecycle | yes |
+| 20 | Memory scoping and TTL | Memory config | yes |
 
 Everything marked deterministic is pure Python with unit tests and no model call.
 That is the majority of the safety surface, by design.

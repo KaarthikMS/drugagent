@@ -134,7 +134,7 @@ No agent, no model. Just: can we get the text?
 
 | # | File | Contains |
 |---|---|---|
-| 1 | `config.py` | `SECTION_PRESETS` — how much label text each question type pays for |
+| 1 | `config.py` | `SECTION_PRESETS` — how much label text each question type pays for ✓ |
 | 2 | `clients/rxnorm.py` | `find_rxcui`, `approximate_match`, `get_related_products` (SCD hop) |
 | 3 | `clients/rxclass.py` | `classes_for`, `members_of` — ATC only (D15) |
 | 4 | `clients/openfda.py` | `search_by_name`, `get_sections`, `search_in_section`, `event_counts` |
@@ -144,8 +144,23 @@ No agent, no model. Just: can we get the text?
 | 8 | `clients/clinicaltables.py` | `loinc_for`, `suggest_conditions` — scored, never auto-picked |
 | 9 | `clients/retrieval.py` | Interface: `search(query) -> [Passage]` (D2 swap point) |
 
-**Exit criterion:** a script fetches warfarin's `drug_interactions` section and prints
-6,000+ characters; each other client returns real content for one known term.
+**Status: complete.** 38 tests pass -- 27 unit on mocked transport, 11 live smoke.
+
+The split earns its keep. Unit tests prove the parsing is right against a fixed
+response; they cannot notice an upstream changing shape, and every client here was
+written against observed behaviour. The smoke tests caught what the unit tests could
+not: `clients/rxnorm.get_name` had been written against a **guessed** URL --
+`property.json?propName=RxNormName`, which reads more precisely than the real
+`properties.json` and returns HTTP 400. It passed review and unit tests because the
+mock answered the shape the code expected.
+
+Step 1's rule was "nothing is written against a guessed URL". Step 2 broke it once.
+`probe_rxnorm` now covers that endpoint.
+
+Also settled here: `SECTION_PRESETS` (a section is included when its *absence* would
+make the answer unsafe, not when its presence would make it richer) and D16 -- fuzzy
+drug-name matches are confirmed by the user, because no threshold can separate
+`prednisone → prednisolone` from `metfrmn → metformin`.
 
 ---
 
