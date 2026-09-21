@@ -76,11 +76,6 @@ RXCLASS_BASE_URL: Final = "https://rxnav.nlm.nih.gov/REST/rxclass"
 # code. Nothing else in the stack maps text to that code.
 CLINICALTABLES_BASE_URL: Final = "https://clinicaltables.nlm.nih.gov/api"
 
-# openFDA returns label text; DailyMed returns the version and publish
-# date of the label that text came from. Citations need provenance, not
-# just content.
-DAILYMED_BASE_URL: Final = "https://dailymed.nlm.nih.gov/dailymed/services/v2"
-
 OPENFDA_LABEL_URL: Final = "https://api.fda.gov/drug/label.json"
 OPENFDA_EVENT_URL: Final = "https://api.fda.gov/drug/event.json"
 OPENFDA_API_KEY: Final = os.getenv("OPENFDA_API_KEY")  # optional
@@ -213,10 +208,3 @@ MAX_SECTION_CHARS: Final = 4000
 # --------------------------------------------------------------------
 
 ESCALATION_THRESHOLD: Final = "medium"
-
-# --------------------------------------------------------------------
-# Memory
-# --------------------------------------------------------------------
-
-MEMORY_TTL_DAYS: Final = 30
-MEMORY_MAX_TURNS: Final = 10

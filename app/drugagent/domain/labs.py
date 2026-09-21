@@ -64,11 +64,21 @@ _NUMBER = r"[-+]?\d+(?:[.,]\d+)?"
 _RANGE = re.compile(
     rf"(?P<low>{_NUMBER})\s*(?:-|–|—|to)\s*(?P<high>{_NUMBER})", re.IGNORECASE
 )
+# A SINGLE space is enough of a separator. Requiring two matched the
+# column alignment of a printed report and rejected the same data pasted
+# from a browser, where the spacing collapses -- and a report that parses
+# to nothing is worse than one that fails loudly, because the model then
+# reads the raw text itself and reports values with no flags computed.
+#
+# The name is non-greedy, so backtracking handles multi-word analytes:
+# "Vitamin D 32" tries name="Vitamin", fails to read "D" as a number,
+# and retries with name="Vitamin D".
 _VALUE_LINE = re.compile(
     rf"""^\s*
     (?P<name>[A-Za-z][A-Za-z0-9\ ()/,.'\-]*?)
-    [\s:]{{2,}}
+    [\s:]+
     (?P<value>{_NUMBER})
+    (?![\w.])
     \s*
     (?P<rest>.*)$
     """,

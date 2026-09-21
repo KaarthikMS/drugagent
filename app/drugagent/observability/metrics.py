@@ -45,18 +45,6 @@ tool_failure = meter.create_counter("tool_failure")
 tool_latency = meter.create_histogram("tool_latency_ms")
 
 # ===========================================================
-# DailyMed Metrics
-# ===========================================================
-
-dailymed_requests = meter.create_counter("dailymed_requests")
-
-dailymed_success = meter.create_counter("dailymed_success")
-
-dailymed_failure = meter.create_counter("dailymed_failure")
-
-dailymed_latency = meter.create_histogram("dailymed_latency_ms")
-
-# ===========================================================
 # Business Metrics
 # ===========================================================
 

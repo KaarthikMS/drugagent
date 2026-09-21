@@ -108,11 +108,6 @@ async def test_clinicaltables_ambiguity_still_ambiguous(clients):
     assert match is not None and match.confident is False
 
 
-async def test_dailymed_gives_dated_provenance(clients):
-    spl = await clients.dailymed.find_spl("warfarin")
-    assert spl and spl.set_id and spl.published
-
-
 async def test_retriever_returns_citable_passages(clients):
     """D2's interface, exercised against the live backend."""
     passages = await clients.retriever.search("hypothyroidism")

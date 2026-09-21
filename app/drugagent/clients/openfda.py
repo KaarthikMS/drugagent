@@ -19,7 +19,6 @@ from dataclasses import dataclass, field
 
 from clients.base import HttpClient
 from config import (
-    MAX_SECTION_CHARS,
     OPENFDA_API_KEY,
     OPENFDA_EVENT_URL,
     OPENFDA_LABEL_URL,
@@ -73,21 +72,48 @@ class OpenFdaClient:
         await self._http.aclose()
 
     async def get_label(
-        self, generic_name: str, sections: tuple[str, ...]
+        self,
+        generic_name: str,
+        sections: tuple[str, ...],
+        require_section: str | None = None,
     ) -> Label | None:
         """Fetch one label, keeping only the requested sections.
 
         None means openFDA has no label for this name -- which must be
         reported as "not found", never answered from model recall.
+
+        Several labels are fetched and the best single-ingredient match
+        is chosen. Taking the first result returns a COMBINATION product
+        whenever one happens to rank highest: a search for "metformin"
+        returned the label for sitagliptin-and-metformin, whose dosing
+        text describes a different medicine than the one asked about.
+
+        `require_section` filters SERVER-SIDE for labels that actually
+        carry a section. It exists because most labels do not: only 19
+        of 719 aspirin labels have `drug_interactions`, so fetching a
+        handful and hoping is a coin flip. Without it, an interaction
+        check silently became one-sided.
         """
-        data = await self._search(
-            OPENFDA_LABEL_URL, f'openfda.generic_name:"{generic_name}"'
-        )
-        results = self._results(data)
+        query = f'openfda.generic_name:"{generic_name}"'
+        results: list[dict] = []
+
+        if require_section:
+            data = await self._search(
+                OPENFDA_LABEL_URL, f"{query} AND _exists_:{require_section}", limit=5
+            )
+            results = self._results(data)
+
+        if not results:
+            # Fall back to any label. A label without the section still
+            # answers "does this drug exist", and the caller can see the
+            # section is empty -- which is different from inventing one.
+            data = await self._search(OPENFDA_LABEL_URL, query, limit=5)
+            results = self._results(data)
+
         if not results:
             return None
 
-        record = results[0]
+        record = self._best_match(results, generic_name, sections)
         return Label(
             generic_name=generic_name,
             set_id=record.get("set_id"),
@@ -154,20 +180,72 @@ class OpenFdaClient:
         return params
 
     @staticmethod
+    def _best_match(
+        results: list[dict], generic_name: str, sections: tuple[str, ...]
+    ) -> dict:
+        """Pick the most useful label among several candidates.
+
+        Two failures this avoids, both observed:
+
+        A COMBINATION product outranking the single drug. openFDA spells
+        a combination as ONE generic_name string -- "SITAGLIPTIN AND
+        METFORMIN HYDROCHLORIDE" -- so the array length is 1 either way
+        and cannot separate them. The separator in the name is the
+        signal. Taking the first result answered a metformin dosing
+        question with a sitagliptin combination's dosing.
+
+        A label that LACKS the section asked for. OTC labels often carry
+        no drug_interactions section at all, which turns a two-sided
+        interaction check into a one-sided one without anything failing.
+        """
+        wanted = generic_name.lower()
+
+        def score(record: dict) -> tuple[int, int, int]:
+            names = [
+                n.lower()
+                for n in (record.get("openfda", {}) or {}).get("generic_name") or []
+            ]
+            name = names[0] if names else ""
+            # A combination is spelled EITHER as one joined string
+            # ("OXYCODONE AND ACETAMINOPHEN") or as several array
+            # entries. Checking only the first element returned an
+            # oxycodone overdose answer to a paracetamol question.
+            is_combination = len(names) > 1 or any(
+                sep in n for n in names for sep in (" and ", ",", "/")
+            )
+            missing_sections = sum(1 for sec in sections if not record.get(sec))
+            # Lower sorts first. Section coverage is weighted above
+            # name shape: a single-ingredient label with none of the
+            # requested text is worth less than a usable one.
+            return (
+                missing_sections,
+                int(is_combination),
+                0 if name.startswith(wanted) else 1,
+            )
+
+        return min(results, key=score)
+
+    @staticmethod
     def _results(data: dict | list | None) -> list[dict]:
         return (data or {}).get("results", []) if isinstance(data, dict) else []
 
     @staticmethod
     def _section_text(record: dict, name: str) -> str:
-        """Join a section's paragraphs and cap its length.
+        """Join a section's paragraphs. NOT truncated here.
 
-        Label sections are lists of strings, not strings. The cap exists
-        so that one unusually long label cannot dominate the context
-        window: an interaction section alone runs to ~6,500 characters,
-        and an interaction query fetches two of them.
+        Label sections are lists of strings, not strings.
+
+        Truncation belongs to the caller that sends text to a model, not
+        to the client that retrieves it. Capping here silently broke the
+        interaction check: warfarin's drug_interactions section is 6,477
+        characters, the cap was 4,000, and "aspirin" appears past that
+        point -- so warfarin plus aspirin came back "not documented",
+        which is the precise failure this system was built to prevent.
+
+        Searching truncated text answers a question about the truncation,
+        not about the label.
         """
         value = record.get(name)
         if not value:
             return ""
-        text = " ".join(value) if isinstance(value, list) else str(value)
-        return text[:MAX_SECTION_CHARS]
+        return " ".join(value) if isinstance(value, list) else str(value)

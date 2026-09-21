@@ -197,3 +197,19 @@ def test_reason_is_not_leaked_into_lower_severities():
     """A MEDIUM block explaining a tripwire reason would be incoherent."""
     text = escalation_text(Severity.MEDIUM, reason="possible stroke")
     assert "possible stroke" not in text
+
+
+def test_overdose_count_with_the_drug_name_between():
+    """ "30 paracetamol tablets" -- the count and the noun are not adjacent.
+
+    The first pattern required them to be, so the phrase a real person
+    types reached MEDIUM instead of EMERGENCY.
+    """
+    for text in (
+        "I just took 30 paracetamol tablets",
+        "I took 20 sleeping pills",
+        "I've taken 15 paracetamol capsules",
+    ):
+        hit = check_tripwire(text)
+        assert hit is not None, text
+        assert hit.floor is Severity.EMERGENCY

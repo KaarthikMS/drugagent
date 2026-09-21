@@ -100,11 +100,13 @@ class RangeSource(str, Enum):
     """Where the reference range came from.
 
     Reported to the user, because a range read off their own report and
-    a range from our fallback table are not equally trustworthy (D9).
+    a range from anywhere else are not equally trustworthy (D9). Only
+    the report is a source today -- a curated fallback table is
+    deliberately not built, since a table would be wrong for every lab
+    whose assay differs and wrong in a way no test catches.
     """
 
     REPORT = "report"
-    FALLBACK_TABLE = "fallback_table"
     NONE = "none"
 
 

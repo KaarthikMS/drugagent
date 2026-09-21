@@ -202,3 +202,31 @@ def test_in_range_caveat_never_says_healthy():
     ):
         assert forbidden not in lowered
     assert "do not rule out" in lowered
+
+
+def test_single_space_separated_rows_parse():
+    """Pasted text collapses column alignment to single spaces.
+
+    Requiring two spaces made a pasted report parse to nothing -- and a
+    report that parses to nothing is worse than one that fails loudly,
+    because the model then reads the raw text and reports values with no
+    flags computed at all.
+    """
+    report = parse_report(
+        "Haemoglobin 13.2 g/dL 13.0 - 17.0\n"
+        "Glucose 104 mg/dL 70 - 100\n"
+        "Potassium 6.9 mmol/L 3.5 - 5.1"
+    )
+    assert len(report.analytes) == 3
+    assert not report.unparsed
+    # Potassium 6.9 against 3.5-5.1 lands far enough outside to be
+    # CRITICAL, which forces HIGH. That is the right answer clinically:
+    # a potassium of 6.9 is not a "discuss it sometime" result.
+    assert report.severity_floor is Severity.HIGH
+
+
+def test_multi_word_analyte_names_survive_backtracking():
+    row = parse_row("Vitamin D 32 ng/mL 30 - 100")
+    assert isinstance(row, Analyte)
+    assert row.name == "Vitamin D"
+    assert row.value == 32

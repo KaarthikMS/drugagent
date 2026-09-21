@@ -18,7 +18,10 @@ import time
 
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
 
+from clients import Clients
+from domain.response import render
 from observability import cw_metrics, logger, metrics, tracer
+from pipeline import handle
 
 app = BedrockAgentCoreApp()
 
@@ -62,15 +65,24 @@ async def invoke(payload, context):
             logger.info("request completed in %.2f ms", elapsed_ms)
 
 
-async def _handle(prompt: str) -> str:
-    """The pipeline: tripwire -> guardrails -> agent -> severity gate.
+_clients: Clients | None = None
 
-    Assembled in step 6 of docs/implementation-plan.md, once the agent
-    and the domain layer it depends on exist. Until then this refuses
-    rather than answers -- degrading to "I cannot answer" is the correct
-    failure mode in this domain, and it is the correct placeholder too.
+
+def _get_clients() -> Clients:
+    """Connection pools, created once per process.
+
+    Per-request clients would discard pooling and TLS session reuse,
+    which on these APIs costs more than the requests themselves.
     """
-    raise NotImplementedError("agent pipeline is assembled in step 6")
+    global _clients
+    if _clients is None:
+        _clients = Clients()
+    return _clients
+
+
+async def _handle(prompt: str) -> str:
+    response = await handle(prompt, _get_clients())
+    return render(response)
 
 
 if __name__ == "__main__":

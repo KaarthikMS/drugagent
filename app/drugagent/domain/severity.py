@@ -121,9 +121,13 @@ TRIPWIRES: tuple[Tripwire, ...] = (
         # oneself it is an event in progress. Paracetamol overdose in
         # particular is time-critical and initially asymptomatic, which
         # is exactly when a calm informational answer does harm.
+        # The drug's name sits between the count and the unit --
+        # "30 paracetamol tablets", not "30 tablets" -- so the number
+        # and the noun cannot be required to be adjacent. Found by
+        # testing the phrase a real person would type.
         _p(
-            r"\bi (just )?(took|swallowed|had) (too (much|many)|\d+\s*(tablets?|pills?))",
-            r"\bi('| ha)?ve (just )?(taken|swallowed) (too (much|many)|\d+\s*(tablets?|pills?))",
+            r"\bi (just |accidentally )?(took|swallowed|had) (too (much|many)|\d+\s*[\w\s]{0,25}?(tablets?|pills?|capsules?))",
+            r"\bi('| ha)?ve (just )?(taken|swallowed) (too (much|many)|\d+\s*[\w\s]{0,25}?(tablets?|pills?|capsules?))",
             r"\bi think i('| ha)?ve overdosed?\b",
             r"\bi overdosed\b",
         ),

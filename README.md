@@ -2,13 +2,14 @@
 
 An AI health assistant for employees, built on **Amazon Bedrock AgentCore**.
 
-Staff ask questions about medications in plain language and get answers grounded in
-official FDA drug labelling — with citations, and with a deterministic safety gate
-that escalates anything clinically serious to a real clinician.
+Staff ask about medicines, conditions, symptoms, drug interactions, toxicity and
+lab results in plain language. Answers are grounded in official sources with
+citations, and a deterministic safety gate escalates anything clinically serious
+to a real clinician.
 
 > **Not a medical device and not a substitute for professional care.**
-> Informational support only. Every medium-or-higher severity response directs the
-> user to qualified medical advice.
+> Informational support only. Every medium-or-higher severity response directs
+> the user to qualified medical advice.
 
 ---
 
@@ -16,24 +17,32 @@ that escalates anything clinically serious to a real clinician.
 
 | | |
 |---|---|
-| Phase | **v1 — in development** |
+| Phase | Prototype — chat flows working end to end |
 | Branch | `feat/v1-health-assistant` |
 | Region | `ap-south-1` |
-| Runtime | AgentCore Runtime (CodeZip, Python) |
+| Runtime | AgentCore Runtime (CodeZip, Python 3.14) |
+| Model | `apac.amazon.nova-lite-v1:0` — APAC-scoped inference profile |
+| Tests | 182 unit (no network, <1s) + 11 live smoke |
 
-## Scope
+**Working now:** all eight tools, emergency tripwire, severity gate, citations,
+Indian brand resolution, lab interpretation by pasted text, local web dashboard.
 
-**v1 — in progress**
-- Drug information: what a drug is, indications, dosage, class
-- Drug–drug interactions, grounded in both products' labels
-- Toxicity: boxed warnings, contraindications, overdose information
-- Cognito authentication, per-user conversation memory
-- Severity triage with escalation to professional advice
+**Not built yet:** Cognito auth, API Gateway, AgentCore Memory, lab report file
+upload (PDF/photo), Guardrails attachment, online evaluators. See
+[`docs/implementation-plan.md`](docs/implementation-plan.md) steps 5–9.
 
-**v2 — planned.** Symptom and condition Q&A. Needs a different grounding corpus
-(drug labels do not describe conditions) and introduces vector retrieval.
+---
 
-**v3 — deferred.** Lab report interpretation.
+## Run it
+
+```bash
+cd app/drugagent
+uv sync --all-groups
+uv run uvicorn server:app --port 8080     # → http://127.0.0.1:8080
+```
+
+Needs AWS credentials with Bedrock access in `ap-south-1`. The unit tests
+(`uv run pytest -m "not smoke"`) need neither credentials nor network.
 
 ---
 
@@ -41,29 +50,22 @@ that escalates anything clinically serious to a real clinician.
 
 ```mermaid
 flowchart TD
-    U["Employee"] --> FE["Web frontend<br/>Cognito login"]
-    FE -->|JWT| GW["API Gateway<br/>JWT authorizer"]
-    GW --> G1
+    U["Employee"] --> FE["Web dashboard"]
+    FE --> TW
 
-    subgraph RT["AgentCore Runtime"]
+    subgraph RT["Runtime"]
         direction TB
-        G1["1 · Guardrails — PII redaction, scope check"]
-        M1["2 · Memory load — scoped to user"]
-        AG["3 · Agent — Strands, single agent"]
-        SEV["4 · Severity gate — deterministic Python"]
-        M2["5 · Memory write — distilled, no raw PHI"]
-        G1 --> M1 --> AG --> SEV --> M2
+        TW["1 · Emergency tripwire — Python, pre-model"]
+        AG["2 · Agent — Strands, one agent, eight tools"]
+        SEV["3 · Severity gate — max of every floor"]
+        TW --> AG --> SEV
     end
 
-    AG -.-> T1["drug_normalize"]
-    AG -.-> T2["drug_label_lookup"]
-    AG -.-> T3["interaction_check"]
+    AG -.-> T["drug_normalize · drug_label_lookup<br/>interaction_check · compound_lookup<br/>toxicity_lookup · condition_lookup<br/>symptom_triage · lab_interpret"]
 
-    T1 -.-> RX["RxNorm API"]
-    T2 -.-> FDA["openFDA label API"]
-    T3 -.-> FDA
+    T -.-> EXT["RxNorm · RxClass · openFDA<br/>PubChem · MedlinePlus · Clinical Tables"]
 
-    M2 --> RESP["Answer + citations<br/>+ escalation if needed"]
+    SEV --> RESP["Answer + citations + caveats<br/>+ escalation if needed"]
 ```
 
 Full detail in [`docs/architecture.md`](docs/architecture.md) and
@@ -71,111 +73,70 @@ Full detail in [`docs/architecture.md`](docs/architecture.md) and
 
 ---
 
+## The design rule
+
+**Guarantees live in code, not in prompts.**
+
+Anything that must be true — escalation fires, "no interaction documented" never
+reads as "safe", a lab value is flagged by arithmetic — is enforced in Python and
+covered by a test. The model writes language; it does not enforce policy.
+
+`app/drugagent/domain/` holds those rules. It imports no client, no model and no
+AWS SDK, so every guarantee is provable without credentials or a network, and the
+whole unit suite runs in under a second.
+
+Sixteen decisions with their rejected alternatives are recorded in
+[`docs/architecture.md`](docs/architecture.md) §4.
+
+---
+
 ## Data sources
 
-Both are free, public, US-government-operated, and require no API key for
-development volumes.
+All public, free, no API key at development volumes.
 
-| Source | Used for | Endpoint |
-|---|---|---|
-| **RxNorm** (NIH/NLM) | Name normalisation — brand→generic, misspellings, ingredient→product IDs | `rxnav.nlm.nih.gov/REST` |
-| **openFDA** (FDA) | Drug label text — the actual grounding content | `api.fda.gov/drug/label.json` |
+| Source | Used for |
+|---|---|
+| **RxNorm** | Name normalisation — brand→generic, misspellings, ingredient→product IDs |
+| **RxClass** | ATC drug classes — a label warns about "NSAIDs" and never says "ibuprofen" |
+| **openFDA** `/drug/label` | Prescribing information — the grounding content |
+| **openFDA** `/drug/event` | FAERS adverse event reports — counts, never rates |
+| **PubChem** | Compound chemistry and GHS hazard classification |
+| **MedlinePlus** | Conditions in consumer language; lab tests by LOINC code |
+| **NLM Clinical Tables** | Analyte name → LOINC code |
+
+Each was probed with positive, negative and **nonsense** controls before any
+client was written against it. `app/drugagent/probes/FINDINGS.md` records what
+each returned — including six different ways of saying "nothing found", and the
+traps that follow from them.
 
 ### Why not the RxNav interaction API
 
-It was retired. Verified:
+Retired. Verified live, not from memory:
 
 ```
 GET https://rxnav.nlm.nih.gov/REST/interaction/interaction.json?rxcui=11289
 → HTTP 404 Not found
 ```
 
-There is no free structured drug-interaction database. Interactions are therefore
-derived from **label text in both directions** — see
-[`docs/architecture.md`](docs/architecture.md#interaction-checking).
+No free structured drug-interaction database exists, so interactions are derived
+by cross-checking both products' label text in both directions — see
+[`docs/architecture.md`](docs/architecture.md) §5.
 
-### The rxcui join
+### Why every answer names a country
 
-RxNorm returns *ingredient*-level concept IDs. openFDA labels carry *product*-level
-ones. They do not match, and joining them naively returns zero results for every
-drug — a silent total failure.
-
-```
-warfarin → RxNorm ingredient rxcui        11289
-           openfda.rxcui:11289            → NO MATCH
-           /rxcui/11289/related.json?tty=SCD
-                                          → 855288, 855296, 855302 …
-           openfda.rxcui:855288           → MATCH
-```
-
-Always resolve ingredient → SCD products before querying openFDA.
+Every source above is American; the users are in India. A US label presented as
+though it described the tablet in someone's hand is a citation that does not
+support its claim. Indian brand names are resolved locally
+(`domain/brands.py`), and the jurisdiction is stated in the answer — decision D14.
 
 ---
 
-## Safety model
+## Before real users
 
-Safety is enforced in **deterministic Python**, never by prompt instruction alone.
-A prompt that says "be careful" fails silently and unmeasurably; code that returns a
-typed flag fails loudly and is unit-testable.
-
-| Control | Where | Why there |
-|---|---|---|
-| PII/PHI redaction | Bedrock Guardrails, input | Before model or memory sees it |
-| Emergency keyword tripwire | Python, pre-model | Must fire even if the model misclassifies |
-| Severity classification | Model output, typed enum | Structured, therefore testable |
-| Escalation block | Python, post-model | Appended by code, not left to the prompt |
-| "Not documented ≠ safe" | Python, post-tool | The single most dangerous confusion in this domain |
-| No prompt text in logs | Logging layer | Health questions must not land in CloudWatch |
-
-### Handling of personal data
-
-- Prompts are **never** written to logs. Logs carry event IDs, intents, latencies, metrics.
-- Memory is scoped per user (Cognito `sub`) with a bounded TTL.
-- Memory stores **distilled context**, not raw message text.
-- No organisation-wide view of individual users' questions exists, by design.
-
----
-
-## Repository layout
-
-```
-pharmaagent/
-├── agentcore/              AWS configuration and infrastructure
-│   ├── agentcore.json      Declarative resource spec — source of truth
-│   ├── aws-targets.json    Deployment target (account + region)
-│   └── cdk/                CDK stack (@aws/agentcore-cdk L3 constructs)
-├── app/drugagent/          Agent application code
-├── docs/                   Architecture, dataflow, implementation plan
-└── frontend/               React client (v1, not yet built)
-```
-
-`agentcore/*.json` is the source of truth. Do not change agent behaviour by editing
-generated CDK code. See [`AGENTS.md`](AGENTS.md).
-
----
-
-## Development
-
-Prerequisites: Node.js 20+, Python 3.10+, [uv](https://docs.astral.sh/uv/), AWS credentials.
-
-```bash
-agentcore dev       # run locally with hot reload
-agentcore invoke    # send a test request
-agentcore validate  # check configuration
-agentcore deploy    # deploy to AWS
-agentcore logs      # view logs
-agentcore traces    # view traces
-```
-
-## Observability
-
-OpenTelemetry spans and metrics, plus CloudWatch metrics, at every layer — request,
-agent, tool, and upstream API. A CloudWatch dashboard is defined in
-`agentcore/cdk/lib/observability-dashboard.ts`.
-
-## Documentation
-
-- [Architecture and design decisions](docs/architecture.md)
-- [Data flow](docs/dataflow.md)
-- [Implementation plan](docs/implementation-plan.md)
-- [AgentCore project conventions](AGENTS.md)
+- **Clinical review** of the emergency tripwires (`domain/severity.py`), the
+  triage ruleset (`domain/triage.py`), `CRITICAL_RANGE_MULTIPLE`
+  (`domain/labs.py`) and the brand map (`domain/brands.py`). All four are plain
+  readable rules, deliberately, so a clinician can check them.
+- Cognito + API Gateway in front of the runtime — the demo server has no auth.
+- Bedrock Guardrails attached at invoke time.
+- Organisational sign-off on accepting employee health data.

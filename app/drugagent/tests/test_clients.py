@@ -174,8 +174,8 @@ async def test_rxclass_unknown_rxcui_returns_empty(mock_http):
 
 
 @pytest.mark.asyncio
-async def test_openfda_sections_are_lists_and_get_capped(mock_http):
-    """Label sections are lists of strings, and can be enormous."""
+async def test_openfda_sections_are_joined_and_not_truncated(mock_http):
+    """Label sections are lists of strings, and must arrive whole."""
     client = _with(
         OpenFdaClient(),
         mock_http(
@@ -195,9 +195,88 @@ async def test_openfda_sections_are_lists_and_get_capped(mock_http):
         ),
     )
     label = await client.get_label("warfarin", ("drug_interactions",))
-    assert len(label.sections["drug_interactions"]) == 4000
+    # NOT truncated: domain logic must search the whole section. Capping
+    # here made warfarin plus aspirin read as "not documented", because
+    # "aspirin" sits past character 4,000 of a 6,477-character section.
+    assert len(label.sections["drug_interactions"]) == 9000
     assert label.jurisdiction == "US"
     assert "abc" in label.source_url
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_openfda_prefers_single_ingredient_over_combination(mock_http):
+    """A search for metformin must not return the sitagliptin combination.
+
+    openFDA spells a combination as one generic_name string, so the
+    array length is identical for both and cannot separate them. Taking
+    results[0] gave a dosing answer for a different medicine.
+    """
+    client = _with(
+        OpenFdaClient(),
+        mock_http(
+            {
+                "label.json": json_response(
+                    {
+                        "results": [
+                            {
+                                "set_id": "combo",
+                                "openfda": {
+                                    "generic_name": [
+                                        "SITAGLIPTIN AND METFORMIN HYDROCHLORIDE"
+                                    ]
+                                },
+                                "indications_and_usage": ["combination text"],
+                            },
+                            {
+                                "set_id": "single",
+                                "openfda": {
+                                    "generic_name": ["METFORMIN HYDROCHLORIDE"]
+                                },
+                                "indications_and_usage": ["metformin text"],
+                            },
+                        ]
+                    }
+                )
+            }
+        ),
+    )
+    label = await client.get_label("metformin", ("indications_and_usage",))
+    assert label.set_id == "single"
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_openfda_prefers_a_label_that_has_the_section(mock_http):
+    """An OTC label with no interactions section is not a usable answer.
+
+    Choosing one turns a two-sided interaction check into a one-sided
+    one with nothing failing to signal it.
+    """
+    client = _with(
+        OpenFdaClient(),
+        mock_http(
+            {
+                "label.json": json_response(
+                    {
+                        "results": [
+                            {
+                                "set_id": "otc",
+                                "openfda": {"generic_name": ["ASPIRIN"]},
+                            },
+                            {
+                                "set_id": "with-section",
+                                "openfda": {"generic_name": ["ASPIRIN"]},
+                                "drug_interactions": ["warfarin increases risk"],
+                            },
+                        ]
+                    }
+                )
+            }
+        ),
+    )
+    label = await client.get_label("aspirin", ("drug_interactions",))
+    assert label.set_id == "with-section"
     await client.aclose()
 
 

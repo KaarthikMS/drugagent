@@ -17,7 +17,6 @@ import asyncio
 from dataclasses import dataclass, field
 
 from clients.clinicaltables import ClinicalTablesClient
-from clients.dailymed import DailyMedClient
 from clients.medlineplus import MedlinePlusClient
 from clients.openfda import OpenFdaClient
 from clients.pubchem import PubChemClient
@@ -28,7 +27,6 @@ from clients.rxnorm import RxNormClient
 __all__ = [
     "Clients",
     "ClinicalTablesClient",
-    "DailyMedClient",
     "MedlinePlusClient",
     "MedlinePlusRetriever",
     "OpenFdaClient",
@@ -47,7 +45,6 @@ class Clients:
     rxnorm: RxNormClient = field(default_factory=RxNormClient)
     rxclass: RxClassClient = field(default_factory=RxClassClient)
     openfda: OpenFdaClient = field(default_factory=OpenFdaClient)
-    dailymed: DailyMedClient = field(default_factory=DailyMedClient)
     pubchem: PubChemClient = field(default_factory=PubChemClient)
     medlineplus: MedlinePlusClient = field(default_factory=MedlinePlusClient)
     clinicaltables: ClinicalTablesClient = field(default_factory=ClinicalTablesClient)
@@ -68,7 +65,6 @@ class Clients:
             self.rxnorm.aclose(),
             self.rxclass.aclose(),
             self.openfda.aclose(),
-            self.dailymed.aclose(),
             self.pubchem.aclose(),
             self.medlineplus.aclose(),
             self.clinicaltables.aclose(),
