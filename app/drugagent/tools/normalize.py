@@ -32,6 +32,7 @@ def make_drug_normalize(ctx: ToolContext):
                          wait for an answer before using the result
             message:     present when the name was not recognised; relay it
         """
+        ctx.used("drug_normalize")
         match = brands.resolve(name)
         if match:
             return {

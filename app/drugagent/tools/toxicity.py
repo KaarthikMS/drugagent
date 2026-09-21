@@ -34,6 +34,7 @@ def make_toxicity_lookup(ctx: ToolContext):
                               paracetamol is "drug ineffective", and
                               "pain" is what people take it for
         """
+        ctx.used("toxicity_lookup")
         generic_name = await resolve_generic(ctx, generic_name)
         label, events = await asyncio.gather(
             ctx.clients.openfda.get_label(

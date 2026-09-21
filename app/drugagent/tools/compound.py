@@ -31,6 +31,7 @@ def make_compound_lookup(ctx: ToolContext):
             found, cid, formula, weight, iupac_name, smiles, source;
             hazards and scope_note when include_hazards is true.
         """
+        ctx.used("compound_lookup")
         cid = await ctx.clients.pubchem.find_cid(name)
         if cid is None:
             return {"found": False, "message": f"No compound record found for {name}."}

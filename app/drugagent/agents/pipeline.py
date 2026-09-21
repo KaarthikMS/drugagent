@@ -45,5 +45,6 @@ async def handle(prompt: str, clients: Clients) -> AgentResponse:
         tool_floors=context.severity_floors,
         citations=context.citations,
         caveats=context.caveats,
+        tools_used=context.tools_used,
         confirmation=context.confirmations[0] if context.confirmations else None,
     )

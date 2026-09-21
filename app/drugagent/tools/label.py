@@ -33,6 +33,7 @@ def make_drug_label_lookup(ctx: ToolContext):
             jurisdiction: always "US" -- state this, because the user is
                       in India and formulations differ
         """
+        ctx.used("drug_label_lookup")
         generic_name = await resolve_generic(ctx, generic_name)
         sections = SECTION_PRESETS.get(topic, SECTION_PRESETS["drug_info"])
         label = await ctx.clients.openfda.get_label(generic_name, sections)

@@ -40,6 +40,20 @@ def clean(text: str) -> str:
 
 from domain.severity import TripwireHit, escalation_text, max_severity
 
+# Returned whenever the model answered without consulting a single
+# tool. Written here, in code, for the same reason the escalation text
+# is: a scope rule in the prompt is a suggestion, and this one was
+# already ignored -- the assistant explained a Strands API and debugged
+# a Python function before this check existed.
+OFF_SCOPE_MESSAGE = (
+    "I can only help with health questions -- medicines, conditions, "
+    "symptoms, drug interactions, and lab results. I don't have anything "
+    "reliable to say about this, so I'd rather not guess.\n\n"
+    "Try asking me about a medicine (Indian brand names work), whether two "
+    "medicines can be taken together, what a condition is, symptoms you're "
+    "having, or paste lab results."
+)
+
 
 def assemble(
     answer: str,
@@ -50,12 +64,23 @@ def assemble(
     citations: list[Citation] | None = None,
     caveats: list[str] | None = None,
     confirmation: str | None = None,
+    tools_used: list[str] | None = None,
 ) -> AgentResponse:
     """Combine everything into the final response.
 
     Severity is the maximum of the tripwire, the model's own judgement,
     and every floor a tool raised. No input can lower another, which is
     what lets each component stay ignorant of the others.
+
+    An answer produced with NO tool call is replaced. Every question this
+    system is for reaches at least one tool; a question that reaches none
+    was answered from the model's own memory, which is ungrounded by
+    definition and is also exactly what an off-topic answer looks like.
+    Checking for tool use catches both with one rule, and unlike a list
+    of banned subjects it needs no guess about what people will ask.
+
+    The exception is a confirmation request -- "did you mean metformin?"
+    is a legitimate reply with nothing looked up yet.
     """
     severity = max_severity(
         tripwire.floor if tripwire else None,
@@ -66,12 +91,18 @@ def assemble(
     reason = tripwire.reason if tripwire else None
     escalation = escalation_text(severity, reason)
 
+    grounded = bool(tools_used) or confirmation is not None
+    # The escalation is NOT dropped along with the answer. If the
+    # tripwire fired, the urgent guidance stands regardless of whether
+    # the model managed to look anything up.
+    body = clean(answer) if grounded else OFF_SCOPE_MESSAGE
+
     return AgentResponse(
-        answer=clean(answer),
+        answer=body,
         severity=severity,
-        citations=tuple(citations or ()),
+        citations=tuple(citations or ()) if grounded else (),
         escalation=escalation,
-        caveats=tuple(caveats or ()),
+        caveats=tuple(caveats or ()) if grounded else (),
         requires_confirmation=confirmation,
     )
 

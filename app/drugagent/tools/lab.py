@@ -37,6 +37,7 @@ def make_lab_interpret(ctx: ToolContext):
             caveat:    YOU MUST INCLUDE THIS in every lab answer
             urgency:   severity floor from the values themselves
         """
+        ctx.used("lab_interpret")
         report = parse_report(report_text)
         ctx.floor(report.severity_floor)
         ctx.caveat(IN_RANGE_CAVEAT)

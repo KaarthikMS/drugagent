@@ -28,10 +28,21 @@ class ToolContext:
     """
 
     clients: Clients
+    tools_used: list[str] = field(default_factory=list)
     severity_floors: list[Severity] = field(default_factory=list)
     citations: list[Citation] = field(default_factory=list)
     caveats: list[str] = field(default_factory=list)
     confirmations: list[str] = field(default_factory=list)
+
+    def used(self, tool: str) -> None:
+        """Record that a tool ran.
+
+        An answer produced without any tool is an answer from the
+        model's own memory, which this system does not permit for
+        anything clinical -- and is also how an off-topic question gets
+        answered, since no tool exists for it to reach for.
+        """
+        self.tools_used.append(tool)
 
     def floor(self, severity: Severity) -> None:
         self.severity_floors.append(severity)

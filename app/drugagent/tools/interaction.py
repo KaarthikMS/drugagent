@@ -31,6 +31,7 @@ def make_interaction_check(ctx: ToolContext):
             one_sided:  true if only one label could be retrieved, so the
                         check was narrower than intended
         """
+        ctx.used("interaction_check")
         ref_a = DrugRef(name=drug_a)
         ref_b = DrugRef(name=drug_b)
 

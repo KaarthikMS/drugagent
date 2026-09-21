@@ -569,6 +569,43 @@ describe what a user may ASK for, not what the assistant may say.
 > boundary is one word wide. Verify each topic against the phrasings it
 > must NOT catch, not only the ones it must.
 
+### D18 — An answer with no tool call is replaced, whatever it says
+
+**Chosen:** the response assembler discards any answer produced without
+a single tool invocation.
+**Rejected:** a scope instruction in the system prompt; a guardrail
+denied-topic list of off-topic subjects.
+
+The prompt already said to use tools for everything factual and to stay
+in scope. The deployed assistant explained the Strands tool-calling API
+and then debugged a Python function -- fluently, confidently, and with
+no tool call behind either.
+
+A denied-topic list cannot fix this, because scope here is an
+**allow-list problem**: the topics that belong are few and nameable, the
+topics that do not are infinite. Guardrails enumerate what is banned.
+
+Tool use is the signal that was already there. Every question this
+system exists for reaches at least one of eight tools. A question that
+reaches none was answered from the model's own memory -- ungrounded by
+definition, and exactly what an off-topic answer looks like. One rule
+catches both, and it needs no guess about what people will ask.
+
+The exception is a confirmation request: *"Did you mean metformin?"* is
+a legitimate reply with nothing looked up yet, so a pending confirmation
+counts as grounding.
+
+Two details matter. **Citations and caveats are dropped** along with the
+answer -- a refusal citing sources claims grounding it does not have.
+And **the escalation is not dropped**: if the tripwire fired, urgent
+guidance stands regardless of whether the model managed to call
+anything. A model failing to use a tool must not be able to suppress an
+emergency block.
+
+> The transferable point: when a rule is about what the model may
+> *discuss*, look for a signal in what the model *did*. Behaviour is
+> observable and testable; intent is neither.
+
 ---
 
 ## 5. Interaction checking
@@ -735,10 +772,11 @@ Python, not in the prompt.
 | 14 | Source jurisdiction stated (D14) | Python, response assembly | yes |
 | 15 | Unmapped brand reported, never guessed | Python, `domain/brands.py` | yes |
 | 16 | Weak LOINC match attaches no description | Python, `domain/labs.py` | yes |
-| 17 | Fuzzy drug-name match confirmed by the user (D16) | Python, `clients/rxnorm.py` | yes |
-| 18 | Content excluded from logs | Logging layer | yes |
-| 19 | Uploaded file deletion | Pipeline + S3 lifecycle | yes |
-| 20 | Memory scoping and TTL | Memory config | yes |
+| 17 | Fuzzy drug-name match confirmed by the user (D16) | Python, `utils/rxnorm.py` | yes |
+| 18 | Ungrounded/off-scope answer replaced (D18) | Python, `domain/response.py` | yes |
+| 19 | Content excluded from logs | Logging layer | yes |
+| 20 | Uploaded file deletion | Pipeline + S3 lifecycle | yes |
+| 21 | Memory scoping and TTL | Memory config | yes |
 
 Everything marked deterministic is pure Python with unit tests and no model call.
 That is the majority of the safety surface, by design.

@@ -38,6 +38,7 @@ def make_symptom_triage(ctx: ToolContext):
             reasons: why. Relay these -- they explain the advice
             matched:  which rules applied
         """
+        ctx.used("symptom_triage")
         report = SymptomReport(
             symptom=symptom,
             duration_hours=duration_hours,

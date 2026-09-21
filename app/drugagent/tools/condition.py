@@ -24,6 +24,7 @@ def make_condition_lookup(ctx: ToolContext):
                       source was unavailable; do NOT answer from memory
             topics:   title, summary and url. Quote only from summary
         """
+        ctx.used("condition_lookup")
         passages = await ctx.clients.retriever.search(condition, limit=2)
         if not passages:
             return {
