@@ -31,9 +31,14 @@ calls the model. The tests marked `not smoke` need neither credentials nor netwo
 ```
 main.py         AgentCore Runtime entrypoint — instrumentation only
 server.py       local demo server (not the deployment path)
-pipeline.py     tripwire → agent → severity gate → response
-agent.py        Strands agent assembly
-config.py       every tunable value, and the model id
+
+agents/         agent.py — Strands assembly
+                pipeline.py — tripwire → agent → severity gate
+config/         config.py — every tunable value, and the model id
+models/         load.py — Bedrock model construction
+prompts/        prompt.py — the system prompt
+tools/          eight Strands @tool adapters
+utils/          raw HTTP to six public APIs
 
 domain/         PURE LOGIC — no network, no model, no AWS
   models.py       typed vocabulary
@@ -45,13 +50,18 @@ domain/         PURE LOGIC — no network, no model, no AWS
   brands.py       Indian brand → US generic ingredients
   response.py     final assembly; what the model cannot influence
 
-clients/        raw HTTP to six public APIs
-tools/          Strands @tool adapters over clients + domain
-prompts/        system prompt
-probes/         live API verification, with controls — see FINDINGS.md
 observability/  OTel traces and metrics. Never content.
+probes/         live API verification, with controls — see FINDINGS.md
 tests/          unit (mocked transport) + smoke (live)
+
+../../frontend/ the dashboard that server.py serves
 ```
+
+Directory names follow the AgentCore convention used across this account —
+`agents/ config/ models/ prompts/ tools/ utils/`. `domain/` is an addition
+rather than a deviation: it holds the rules that must hold, and keeping them
+out of `utils/` is precisely what lets them be tested without a client, a
+model or credentials.
 
 ## The one idea worth knowing
 
