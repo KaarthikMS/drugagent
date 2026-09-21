@@ -119,6 +119,10 @@ const EXAMPLES = [
   "Haemoglobin 13.2 g/dL 13.0 - 17.0\nGlucose 104 mg/dL 70 - 100\nPotassium 6.9 mmol/L 3.5 - 5.1",
 ];
 
+// Scheme allow-list. Setting .href is safe from markup injection but not
+// from javascript: and data: URLs, which execute on click.
+const SAFE_URL = /^https?:\/\//i;
+
 const thread = document.getElementById('thread');
 const input = document.getElementById('input');
 const send = document.getElementById('send');
@@ -183,12 +187,27 @@ async function ask() {
       }
       (data.caveats || []).forEach(c => m.appendChild(el('caveat', c)));
 
-      if ((data.citations || []).length) {
+      // Built with DOM APIs, not innerHTML. Citation titles and URLs are
+      // third-party data -- MedlinePlus topic titles, openFDA set_ids --
+      // and a title also embeds the drug name the USER typed. Any of the
+      // three reaching innerHTML is script injection.
+      const cites = (data.citations || []).filter(c => SAFE_URL.test(c.url || ''));
+      if (cites.length) {
         const s = el('sources');
-        s.innerHTML = '<strong>Sources</strong><br>' + data.citations
-          .filter(c => c.url)
-          .map(c => `<a href="${c.url}" target="_blank" rel="noopener">${c.title}</a>`)
-          .join('<br>');
+        const heading = document.createElement('strong');
+        heading.textContent = 'Sources';
+        s.appendChild(heading);
+        cites.forEach(c => {
+          s.appendChild(document.createElement('br'));
+          const a = document.createElement('a');
+          // .href and .textContent assign an attribute and a text node.
+          // The browser never parses either as markup.
+          a.href = c.url;
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          a.textContent = c.title || c.url;
+          s.appendChild(a);
+        });
         m.appendChild(s);
       }
     });
