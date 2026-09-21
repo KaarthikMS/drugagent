@@ -25,12 +25,14 @@ to a real clinician.
 | Tests | 184 unit (no network, <1s) + 11 live smoke |
 | Guardrail | `4xo8hb0f7iyl` v2 — 5 denied topics, input-only |
 
-**Working now:** all eight tools, emergency tripwire, severity gate, citations,
-Indian brand resolution, lab interpretation by pasted text, local web dashboard.
+**Working now:** deployed to AgentCore Runtime with the guardrail attached. All
+eight tools, emergency tripwire, severity gate, citations, Indian brand
+resolution, lab interpretation by pasted text, and a dashboard that calls the
+deployed runtime.
 
 **Not built yet:** Cognito auth, API Gateway, AgentCore Memory, lab report file
-upload (PDF/photo), Guardrails attachment, online evaluators. See
-[`docs/implementation-plan.md`](docs/implementation-plan.md) steps 5–9.
+upload (PDF/photo), online evaluators. See
+[`docs/implementation-plan.md`](docs/implementation-plan.md) steps 7–9.
 
 ---
 
@@ -91,7 +93,7 @@ covered by a test. The model writes language; it does not enforce policy.
 AWS SDK, so every guarantee is provable without credentials or a network, and the
 whole unit suite runs in under a second.
 
-Sixteen decisions with their rejected alternatives are recorded in
+Seventeen decisions with their rejected alternatives are recorded in
 [`docs/architecture.md`](docs/architecture.md) §4.
 
 ---
@@ -143,6 +145,6 @@ support its claim. Indian brand names are resolved locally
   triage ruleset (`domain/triage.py`), `CRITICAL_RANGE_MULTIPLE`
   (`domain/labs.py`) and the brand map (`domain/brands.py`). All four are plain
   readable rules, deliberately, so a clinician can check them.
-- Cognito + API Gateway in front of the runtime — the demo server has no auth.
-- Bedrock Guardrails attached at invoke time.
+- Cognito + API Gateway in front of the runtime. The runtime itself is
+  IAM-protected, but the dashboard that calls it is not.
 - Organisational sign-off on accepting employee health data.
