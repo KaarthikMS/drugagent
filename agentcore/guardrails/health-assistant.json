@@ -1,80 +1,77 @@
 {
   "name": "pharmaagent-health-assistant",
   "description": "Health information assistant for employees. Scope control and PII redaction ONLY -- clinical safety (escalation, severity, the 'not documented is not safe' contract) is enforced in Python, not here.",
-
   "topicPolicyConfig": {
     "topicsConfig": [
       {
         "name": "Diagnosis",
         "type": "DENY",
-        "definition": "Requests to identify, confirm or rule out what disease or condition a person has, based on their symptoms, history or test results. Explaining what a named condition is, is NOT diagnosis and is in scope.",
+        "definition": "Asking the assistant to name which illness the user personally has or does not have, judging from their own symptoms, history or results.",
         "examples": [
-          "What disease do I have?",
-          "Based on these symptoms, is it dengue or typhoid?",
           "Do I have diabetes?",
+          "Based on my symptoms, is it dengue or typhoid?",
+          "Tell me what's wrong with me",
           "Is this cancer?",
-          "Tell me what's wrong with me"
-        ]
+          "What disease do I have?"
+        ],
+        "inputEnabled": true,
+        "outputEnabled": false
       },
       {
         "name": "Prescribing and dose changes",
         "type": "DENY",
-        "definition": "Recommending that a person start, stop, switch or change the dose of a medicine, including medicines a clinician has already prescribed them. Reporting the dosing text printed on an official product label is NOT prescribing and is in scope.",
+        "definition": "Recommending that someone start, stop, switch or change the dose of a medicine, including one already prescribed. Reporting dosing text printed on an official label is NOT this topic.",
         "examples": [
           "Should I stop taking my blood pressure tablets?",
           "Can I double my dose since it isn't working?",
           "Which antibiotic should I take for this?",
           "Is it okay to skip my thyroid medicine this week?",
           "Prescribe me something for the pain"
-        ]
-      },
-      {
-        "name": "Self-harm methods",
-        "type": "DENY",
-        "definition": "Requests for information that would help a person harm or kill themselves -- lethal doses, which medicines are fatal in overdose, how much of something is required to cause death. A person EXPRESSING distress or suicidal feelings is not this topic and must be answered with crisis support.",
-        "examples": [
-          "How many tablets would be a lethal dose?",
-          "Which medicine is the most painless way to die?",
-          "What is the fatal amount of paracetamol?",
-          "How much insulin would kill someone?"
-        ]
+        ],
+        "inputEnabled": true,
+        "outputEnabled": false
       },
       {
         "name": "Obtaining medicines without a prescription",
         "type": "DENY",
-        "definition": "Requests for help acquiring prescription-only or controlled medicines outside a lawful prescription, including where to buy them, how to obtain them without a doctor, or how to get a prescription issued under false pretences.",
+        "definition": "Help acquiring prescription-only or controlled medicines outside a lawful prescription: where to buy them, how to get them without a doctor, or how to obtain a prescription by deception.",
         "examples": [
           "Where can I buy tramadol without a prescription?",
           "How do I get alprazolam without seeing a doctor?",
           "Which pharmacy will sell antibiotics without a prescription?",
           "What should I tell a doctor to get sleeping pills?"
-        ]
+        ],
+        "inputEnabled": true,
+        "outputEnabled": false
       },
       {
         "name": "Fitness for duty and medical certificates",
         "type": "DENY",
-        "definition": "Requests for a sick note, medical certificate, fitness-for-work opinion, or a statement about whether a person is fit to work, drive or travel. This system is provided by an employer and must not produce employment-relevant medical opinions about anyone.",
+        "definition": "Requests for a sick note, medical certificate, or an opinion on whether someone is fit to work, drive or travel. This system is employer-provided and must not give such opinions.",
         "examples": [
           "Write me a sick note for two days",
           "Am I fit to return to work?",
           "Can you certify that I was unwell?",
           "Am I fit to drive on these tablets?"
-        ]
+        ],
+        "inputEnabled": true,
+        "outputEnabled": false
       },
       {
         "name": "Medical advice about another person",
         "type": "DENY",
-        "definition": "Requests for assessment, triage or advice concerning a specific other person -- a colleague, family member or child -- rather than the person asking. General information about a condition or medicine is in scope regardless of who it is for.",
+        "definition": "Assessment, triage or advice about a specific other person - a colleague, family member or child - rather than the person asking. General information about a condition is NOT this topic.",
         "examples": [
           "My daughter has a fever of 39, what should I give her?",
           "My colleague is on lithium, is he safe to work?",
           "My father collapsed, what should we do at home?",
           "How much of this should I give my 3-year-old?"
-        ]
+        ],
+        "inputEnabled": true,
+        "outputEnabled": false
       }
     ]
   },
-
   "contentPolicyConfig": {
     "filtersConfig": [
       {
@@ -109,21 +106,47 @@
       }
     ]
   },
-
   "wordPolicyConfig": {
-    "managedWordListsConfig": [{ "type": "PROFANITY" }]
+    "managedWordListsConfig": [
+      {
+        "type": "PROFANITY"
+      }
+    ]
   },
-
   "sensitiveInformationPolicyConfig": {
     "piiEntitiesConfig": [
-      { "type": "NAME", "action": "ANONYMIZE" },
-      { "type": "EMAIL", "action": "ANONYMIZE" },
-      { "type": "PHONE", "action": "ANONYMIZE" },
-      { "type": "ADDRESS", "action": "ANONYMIZE" },
-      { "type": "CREDIT_DEBIT_CARD_NUMBER", "action": "BLOCK" },
-      { "type": "AWS_ACCESS_KEY", "action": "BLOCK" },
-      { "type": "AWS_SECRET_KEY", "action": "BLOCK" },
-      { "type": "PASSWORD", "action": "BLOCK" }
+      {
+        "type": "NAME",
+        "action": "ANONYMIZE"
+      },
+      {
+        "type": "EMAIL",
+        "action": "ANONYMIZE"
+      },
+      {
+        "type": "PHONE",
+        "action": "ANONYMIZE"
+      },
+      {
+        "type": "ADDRESS",
+        "action": "ANONYMIZE"
+      },
+      {
+        "type": "CREDIT_DEBIT_CARD_NUMBER",
+        "action": "BLOCK"
+      },
+      {
+        "type": "AWS_ACCESS_KEY",
+        "action": "BLOCK"
+      },
+      {
+        "type": "AWS_SECRET_KEY",
+        "action": "BLOCK"
+      },
+      {
+        "type": "PASSWORD",
+        "action": "BLOCK"
+      }
     ],
     "regexesConfig": [
       {
@@ -140,13 +163,16 @@
       }
     ]
   },
-
   "blockedInputMessaging": "I can't help with that one. I can explain what a medicine or condition is, check whether an interaction is documented, and read lab results -- but I can't diagnose, recommend or change treatment, or give an opinion about someone else. For anything in that territory, please speak to a doctor or pharmacist. If this is urgent, call 112.",
-
   "blockedOutputsMessaging": "I started to answer and stopped, because the answer was heading somewhere I shouldn't go. Please ask a doctor or pharmacist about this. If this is urgent, call 112.",
-
   "tags": [
-    { "key": "agentcore:project-name", "value": "pharmaagent" },
-    { "key": "purpose", "value": "health-assistant-poc" }
+    {
+      "key": "agentcore:project-name",
+      "value": "pharmaagent"
+    },
+    {
+      "key": "purpose",
+      "value": "health-assistant-poc"
+    }
   ]
 }

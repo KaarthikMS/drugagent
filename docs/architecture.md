@@ -548,10 +548,26 @@ tool results as one -- so it would have nothing to compare against.
 Groundedness is measured by evaluators instead, where the retrieved text
 is actually available.
 
+**Testing removed a topic and disabled output filtering.** Written as a
+topic, "self-harm methods" blocked *"I feel like I want to kill myself"*
+and *"I just took 30 paracetamol tablets"* -- both of which must reach
+the tripwire -- and narrowing it to quantities did not help, because
+topic policies take no negative examples and the two phrasings are
+semantically adjacent. The rule moved to the system prompt.
+
+Topic policies also run on OUTPUT, where "prescribing and dose changes"
+matched the system's own answers: a correct answer quotes the label's
+dosing text. Every topic now sets `outputEnabled: false`. These topics
+describe what a user may ASK for, not what the assistant may say.
+
 > The transferable point: a guardrail is a filter, not a policy engine. It
 > can stop a bad question reaching the model. It cannot make an answer
 > correct, and configuring it as though it could moves a guarantee out of
 > code that can be tested and into a service that cannot.
+>
+> And a topic policy is a semantic classifier -- too blunt wherever the
+> boundary is one word wide. Verify each topic against the phrasings it
+> must NOT catch, not only the ones it must.
 
 ---
 
