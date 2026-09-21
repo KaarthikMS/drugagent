@@ -53,6 +53,29 @@ export class AgentCoreStack extends Stack {
           resources: ['*'],
         })
       );
+
+      // Allow the runtime to apply the guardrail named in its own env vars.
+      //
+      // The runtime's execution role does not get this by default: attaching a
+      // guardrail to a Bedrock request requires bedrock:ApplyGuardrail on that
+      // guardrail's ARN, and without it EVERY invocation fails with
+      // AccessDeniedException -- a deploy that reports success and an agent
+      // that answers nothing.
+      //
+      // The id is read from the spec rather than written here, so
+      // agentcore.json stays the single place it appears.
+      const guardrailId = spec.runtimes
+        .find(r => r.name === 'drugagent')
+        ?.envVars?.find(v => v.name === 'GUARDRAIL_ID')?.value;
+
+      if (guardrailId) {
+        drugAgentEnv.runtime.addToPolicy(
+          new PolicyStatement({
+            actions: ['bedrock:ApplyGuardrail'],
+            resources: [`arn:aws:bedrock:${this.region}:${this.account}:guardrail/${guardrailId}`],
+          })
+        );
+      }
     }
 
     // Instantiate custom observability dashboard
