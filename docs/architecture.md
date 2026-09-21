@@ -505,6 +505,54 @@ control.
 > threshold over that data will work, and the decision belongs to
 > someone who has the missing information. Here that is the user.
 
+### D17 — The guardrail does scope, not safety, and must not filter distress
+
+**Chosen:** a project-specific Bedrock guardrail limited to scope control
+and PII redaction.
+**Rejected:** reusing the organisation's existing assistant guardrails,
+and a conventional health guardrail with self-harm filtering on input.
+
+The two guardrails already in the account are scoped to an IT and HR
+assistant. Their denied topics and filters describe a different product,
+and inheriting them would mean this system's scope was decided by
+somebody else's requirements.
+
+The second rejection is the important one. The obvious configuration for
+a health product filters self-harm content on **input**. Do that, and a
+person typing *"I want to kill myself"* receives a canned refusal,
+because Guardrails stops the message before the system sees it.
+
+`domain/severity.py` already handles that case: a self-harm tripwire
+forces `EMERGENCY` and returns crisis guidance, before the model runs. An
+input filter would not add safety; it would destroy the one response that
+matters.
+
+So the guardrail denies **self-harm methods** -- lethal doses, "which
+medicine kills" -- while distress reaches the tripwire untouched. The
+distinction lives in the topic definition, where a reviewer can check it.
+
+The same reasoning applies to violence and sexual content: label text
+describes bleeding, overdose and death, and covers contraception and
+sexual dysfunction. Input filtering is off; output filtering is low.
+
+**AGE is deliberately not redacted.** Bedrock can anonymise it as PII, and
+`domain/triage.py` reads age and pregnancy to decide urgency -- fever in
+pregnancy reaches `HIGH`. Redacting a field the safety layer depends on is
+a safety change wearing a privacy setting's clothes. Names, emails, phone
+numbers, addresses, Aadhaar and PAN are anonymised, since employees paste
+lab reports carrying them.
+
+**Contextual grounding is not enabled.** The filter scores an answer
+against a declared grounding source, and Strands does not tag retrieved
+tool results as one -- so it would have nothing to compare against.
+Groundedness is measured by evaluators instead, where the retrieved text
+is actually available.
+
+> The transferable point: a guardrail is a filter, not a policy engine. It
+> can stop a bad question reaching the model. It cannot make an answer
+> correct, and configuring it as though it could moves a guarantee out of
+> code that can be tested and into a service that cannot.
+
 ---
 
 ## 5. Interaction checking
@@ -655,8 +703,8 @@ Python, not in the prompt.
 
 | # | Control | Layer | Deterministic |
 |---|---|---|---|
-| 1 | PII/PHI redaction | Guardrails, input | yes |
-| 2 | Out-of-scope refusal | Guardrails + prompt | partly |
+| 1 | PII/PHI redaction | Guardrails, input (not AGE -- D17) | yes |
+| 2 | Out-of-scope refusal | Guardrails denied topics + prompt | partly |
 | 3 | Emergency keyword tripwire | Python, pre-model | yes |
 | 4 | Symptom red-flag ruleset | Python, `domain/triage.py` | yes |
 | 5 | Severity classification | Model, typed enum | no — hence 3 and 4 |
