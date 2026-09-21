@@ -12,19 +12,46 @@ Design decisions and their rationale live in [`docs/`](../../docs): `architectur
 ```bash
 uv sync --all-groups
 
-# Local demo dashboard
+# Dashboard. Serves the page and forwards questions to the DEPLOYED
+# runtime -- it does not run the agent locally.
 uv run uvicorn server:app --port 8080     # → http://127.0.0.1:8080
 
 # Tests
-uv run pytest -m "not smoke"              # 182 tests, no network, <1s
+uv run pytest -m "not smoke"              # 184 tests, no network, <1s
 uv run pytest                             # adds live API smoke tests
 
 # Verify an upstream API still behaves as recorded
 uv run python -m probes.probe_rxnorm
 ```
 
-Requires AWS credentials with Bedrock access in `ap-south-1` for anything that
-calls the model. The tests marked `not smoke` need neither credentials nor network.
+The dashboard needs credentials that can call `bedrock-agentcore:InvokeAgentRuntime`
+in `ap-south-1` — not Bedrock model access, since the model is invoked inside the
+runtime. The tests marked `not smoke` need neither credentials nor network.
+
+**Why the dashboard proxies instead of running the pipeline in-process:** so the
+browser exercises the same path an employee would — same model, same guardrail,
+same IAM role, same logs. Running it locally tests a different system, and that
+difference already cost us once: a missing `bedrock:ApplyGuardrail` permission was
+invisible locally because local runs had no guardrail attached.
+
+To run the pipeline directly anyway (debugging domain logic without a deploy):
+
+```bash
+uv run python -c "
+import asyncio
+from utils import Clients
+from agents.pipeline import handle
+from domain.response import render
+
+async def main():
+    c = Clients()
+    try:
+        print(render(await handle('What is metformin used for?', c)))
+    finally:
+        await c.aclose()
+
+asyncio.run(main())
+"
 
 ## Layout
 

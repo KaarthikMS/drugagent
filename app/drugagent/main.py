@@ -45,6 +45,11 @@ async def invoke(payload, context):
             metrics.success_counter.add(1)
             cw_metrics.put_metric("AgentSuccess", 1)
             span.set_attribute("agent.success", True)
+            # Severity is a category, not content -- safe to trace, and
+            # it is the field you want when reading back why a response
+            # escalated.
+            span.set_attribute("agent.severity", response["severity"])
+            cw_metrics.put_metric("AgentEscalated", 1 if response["escalation"] else 0)
             yield response
 
         except Exception as exc:
@@ -80,9 +85,30 @@ def _get_clients() -> Clients:
     return _clients
 
 
-async def _handle(prompt: str) -> str:
+async def _handle(prompt: str) -> dict:
+    """Answer one question, as structured fields.
+
+    Fields rather than rendered text, because the caller has to be able
+    to style the escalation block differently from the answer. An
+    escalation rendered as ordinary prose is an escalation people skim
+    past, and that decision belongs to whatever is displaying it.
+
+    `rendered` is included for callers that cannot lay out fields --
+    a CLI, a log line, a Slack message.
+    """
     response = await handle(prompt, _get_clients())
-    return render(response)
+    return {
+        "answer": response.answer,
+        "severity": response.severity.value,
+        "escalation": response.escalation,
+        "caveats": list(response.caveats),
+        "citations": [
+            {"title": c.title, "url": c.url, "jurisdiction": c.jurisdiction}
+            for c in response.citations
+        ],
+        "requires_confirmation": response.requires_confirmation,
+        "rendered": render(response),
+    }
 
 
 if __name__ == "__main__":

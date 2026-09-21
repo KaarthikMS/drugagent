@@ -22,7 +22,8 @@ to a real clinician.
 | Region | `ap-south-1` |
 | Runtime | AgentCore Runtime (CodeZip, Python 3.14) |
 | Model | `apac.amazon.nova-lite-v1:0` — APAC-scoped inference profile |
-| Tests | 182 unit (no network, <1s) + 11 live smoke |
+| Tests | 184 unit (no network, <1s) + 11 live smoke |
+| Guardrail | `4xo8hb0f7iyl` v2 — 5 denied topics, input-only |
 
 **Working now:** all eight tools, emergency tripwire, severity gate, citations,
 Indian brand resolution, lab interpretation by pasted text, local web dashboard.
@@ -41,8 +42,13 @@ uv sync --all-groups
 uv run uvicorn server:app --port 8080     # → http://127.0.0.1:8080
 ```
 
-Needs AWS credentials with Bedrock access in `ap-south-1`. The unit tests
-(`uv run pytest -m "not smoke"`) need neither credentials nor network.
+The dashboard **does not run the agent**. It serves the page and forwards each
+question to the deployed AgentCore runtime, so the browser exercises the same
+path an employee would — same model, same guardrail, same IAM role, same logs.
+
+Needs credentials that can call `bedrock-agentcore:InvokeAgentRuntime` in
+`ap-south-1`. The unit tests (`uv run pytest -m "not smoke"`) need neither
+credentials nor network.
 
 ---
 
