@@ -16,7 +16,6 @@ from typing import Final
 # --------------------------------------------------------------------
 
 SERVICE_NAME: Final = "pharma-health-assistant"
-ENVIRONMENT: Final = os.getenv("ENVIRONMENT", "dev")
 
 # --------------------------------------------------------------------
 # Bedrock model
@@ -40,7 +39,6 @@ ENVIRONMENT: Final = os.getenv("ENVIRONMENT", "dev")
 BEDROCK_REGION: Final = os.getenv("BEDROCK_REGION", "ap-south-1")
 
 MODEL_ID: Final = os.getenv("MODEL_ID", "apac.amazon.nova-lite-v1:0")
-VISION_MODEL_ID: Final = os.getenv("VISION_MODEL_ID", MODEL_ID)
 
 # Near-zero, not zero: stable clinical wording across identical
 # questions matters more than sampling variety.
@@ -130,11 +128,6 @@ SECTION_BOXED_WARNING: Final = "boxed_warning"
 SECTION_ADVERSE: Final = "adverse_reactions"
 SECTION_INTERACTIONS: Final = "drug_interactions"
 SECTION_OVERDOSAGE: Final = "overdosage"
-SECTION_DESCRIPTION: Final = "description"
-SECTION_MECHANISM: Final = "mechanism_of_action"
-SECTION_PREGNANCY: Final = "pregnancy"
-SECTION_PEDIATRIC: Final = "pediatric_use"
-SECTION_GERIATRIC: Final = "geriatric_use"
 
 # --------------------------------------------------------------------
 # Section presets
@@ -154,10 +147,10 @@ SECTION_GERIATRIC: Final = "geriatric_use"
 # label carries, it is short, and an answer that omits it while quoting
 # the same label is an answer that looks complete and is not.
 #
-# Deliberately excluded: `description` and `mechanism_of_action` (large,
-# and pharmacology no employee asked for), `pregnancy`, `pediatric_use`
-# and `geriatric_use` (retrieved on demand when the question raises
-# them, not paid for on every query).
+# Only the sections a preset actually uses are named here. `description`,
+# `mechanism_of_action`, `pregnancy`, `pediatric_use` and `geriatric_use`
+# were declared and never referenced -- a constant nothing reads is a
+# decision nobody made. Add one back beside the preset that needs it.
 # --------------------------------------------------------------------
 
 SECTION_PRESETS: Final[dict[str, tuple[str, ...]]] = {

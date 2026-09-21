@@ -49,17 +49,6 @@ from domain.units import compatible, convert, normalise
 # this before real users. Until then it errs toward escalating.
 CRITICAL_RANGE_MULTIPLE = 1.0
 
-# Matches: name, value, optional unit, optional reference range.
-#   Haemoglobin      13.2   g/dL     13.0 - 17.0
-#   Glucose (F)      104    mg/dL    70-100
-_ROW = re.compile(
-    r"""^\s*
-    (?P<name>[A-Za-z][A-Za-z0-9 ()/,.'\-]*?)
-    \s{2,}|\t
-    """,
-    re.VERBOSE,
-)
-
 _NUMBER = r"[-+]?\d+(?:[.,]\d+)?"
 _RANGE = re.compile(
     rf"(?P<low>{_NUMBER})\s*(?:-|–|—|to)\s*(?P<high>{_NUMBER})", re.IGNORECASE
