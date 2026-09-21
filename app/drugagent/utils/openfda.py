@@ -56,11 +56,18 @@ class EventCounts:
 
     drug: str
     counts: dict[str, int]
+    # Phrased conditionally because the caveat is attached whenever
+    # counts are RETRIEVED, and the model does not always quote them.
+    # A flat "these are counts of reports" under an answer containing no
+    # counts reads as a non-sequitur, and a caveat the reader cannot
+    # connect to anything teaches them to skip the next one -- including
+    # the ones that matter.
     caveat: str = (
-        "These are counts of spontaneous reports submitted to FDA. Anyone may "
-        "file one and nothing is verified. There is no denominator -- no count "
-        "of people who took the drug without reporting anything -- so these "
-        "numbers are not rates and do not show that the drug caused the event."
+        "If any figures above come from FDA adverse-event reports: those are "
+        "counts of spontaneous reports. Anyone may file one, nothing is "
+        "verified, and there is no denominator -- no count of people who took "
+        "the drug and reported nothing -- so they are not rates and do not "
+        "show the drug caused the event."
     )
 
 
@@ -113,7 +120,7 @@ class OpenFdaClient:
         if not results:
             return None
 
-        record = self._best_match(results, generic_name, sections)
+        record = self._best_match(results, generic_name, sections, require_section)
         return Label(
             generic_name=generic_name,
             set_id=record.get("set_id"),
@@ -181,7 +188,10 @@ class OpenFdaClient:
 
     @staticmethod
     def _best_match(
-        results: list[dict], generic_name: str, sections: tuple[str, ...]
+        results: list[dict],
+        generic_name: str,
+        sections: tuple[str, ...],
+        require_section: str | None = None,
     ) -> dict:
         """Pick the most useful label among several candidates.
 
@@ -200,7 +210,7 @@ class OpenFdaClient:
         """
         wanted = generic_name.lower()
 
-        def score(record: dict) -> tuple[int, int, int]:
+        def score(record: dict) -> tuple[int, int, int, int]:
             names = [
                 n.lower()
                 for n in (record.get("openfda", {}) or {}).get("generic_name") or []
@@ -214,12 +224,32 @@ class OpenFdaClient:
                 sep in n for n in names for sep in (" and ", ",", "/")
             )
             missing_sections = sum(1 for sec in sections if not record.get(sec))
-            # Lower sorts first. Section coverage is weighted above
-            # name shape: a single-ingredient label with none of the
-            # requested text is worth less than a usable one.
+            # Lower sorts first, and SINGLE-INGREDIENT OUTRANKS SECTION
+            # COVERAGE. The reverse was tried and produced a paracetamol
+            # overdose answer describing oxycodone toxicity: the pure
+            # ACETAMINOPHEN label is an OTC one with no boxed_warning or
+            # warnings_and_cautions, while OXYCODONE AND ACETAMINOPHEN is
+            # a prescription label carrying all four requested sections.
+            # Ranking completeness first made the richer label win.
+            #
+            # A combination product is a DIFFERENT MEDICINE. No amount of
+            # section coverage compensates for answering about the wrong
+            # one, so this ordering is not a tuning preference.
+            # Among equally valid labels, prefer the one with MORE of
+            # the section that was asked for. Most ACETAMINOPHEN labels
+            # are OTC and carry a 243-character "get medical help"
+            # blurb; the prescription labels carry real overdose
+            # management. Both are correct, and one is useful.
+            depth = 0
+            if require_section:
+                value = record.get(require_section) or []
+                text = " ".join(value) if isinstance(value, list) else str(value)
+                depth = -len(text)
+
             return (
-                missing_sections,
                 int(is_combination),
+                missing_sections,
+                depth,
                 0 if name.startswith(wanted) else 1,
             )
 

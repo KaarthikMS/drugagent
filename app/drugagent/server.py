@@ -100,10 +100,17 @@ async def ask(body: Ask) -> dict:
 def _read(result: dict) -> dict:
     """Decode the runtime's response.
 
-    The entrypoint is an async generator, so the body arrives as a
-    stream of chunks. They are concatenated and parsed once, because the
-    dashboard renders a complete answer rather than a partial one --
-    a half-rendered escalation block is worse than a slower one.
+    The entrypoint is an async generator, so AgentCore streams it back as
+    SERVER-SENT EVENTS, not as a JSON body:
+
+        data: {"answer": "...", "severity": "medium", ...}
+
+    Parsing the raw bytes as JSON fails on the `data: ` prefix, and the
+    fallback path then rendered the entire JSON object to the user as
+    though it were prose. Each line is unwrapped first.
+
+    Chunks are joined and parsed once rather than rendered as they
+    arrive: a half-rendered escalation block is worse than a slower one.
     """
     body = result.get("response")
     raw = b"".join(body) if body is not None else b""
@@ -112,28 +119,43 @@ def _read(result: dict) -> dict:
     if not text:
         return _error("The agent returned an empty response.")
 
+    payload = _unwrap_sse(text)
+
+    data = _loads(payload)
+    # A generator yielding a dict is serialised once by the runtime and
+    # again by the SSE frame, so the payload can be a JSON string
+    # containing JSON. Unwrap until it stops being a string.
+    for _ in range(3):
+        if not isinstance(data, str):
+            break
+        data = _loads(data)
+
+    if isinstance(data, dict) and "answer" in data:
+        return data
+
+    # Anything else is text: a runtime deployed before the structured
+    # response existed, or an error string. Show it rather than failing.
+    return _error(payload if isinstance(data, str) or data is None else str(data))
+
+
+def _unwrap_sse(text: str) -> str:
+    """Strip `data:` framing. Returns the text unchanged if unframed."""
+    lines = [ln for ln in text.splitlines() if ln.strip()]
+    if not any(ln.startswith("data:") for ln in lines):
+        return text
+    return "".join(ln[len("data:") :].strip() for ln in lines if ln.startswith("data:"))
+
+
+def _loads(text: str):
     try:
-        data = json.loads(text)
-    except json.JSONDecodeError:
-        # A runtime deployed before the structured-response change
-        # returns plain text. Render it rather than failing.
-        return _error(text, severity="informational")
-
-    if isinstance(data, str):
-        try:
-            data = json.loads(data)
-        except json.JSONDecodeError:
-            return _error(data, severity="informational")
-
-    if not isinstance(data, dict) or "answer" not in data:
-        return _error(str(data), severity="informational")
-
-    return data
+        return json.loads(text)
+    except (json.JSONDecodeError, TypeError):
+        return None
 
 
-def _error(message: str, severity: str = "informational") -> dict:
+def _error(message: str | None, severity: str = "informational") -> dict:
     return {
-        "answer": message,
+        "answer": message or "The agent returned an unreadable response.",
         "severity": severity,
         "escalation": None,
         "caveats": [],

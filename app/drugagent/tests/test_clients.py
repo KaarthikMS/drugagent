@@ -303,6 +303,7 @@ async def test_openfda_event_counts_carry_the_caveat(mock_http):
     counts = await client.event_counts("acetaminophen")
     assert counts.counts["DRUG INEFFECTIVE"] == 52232
     assert "denominator" in counts.caveat
+    assert counts.caveat.startswith("If any figures")
     await client.aclose()
 
 
@@ -441,4 +442,51 @@ async def test_clinicaltables_empty_array_is_no_match(mock_http):
         mock_http({"loinc_items": json_response([0, [], None, []])}),
     )
     assert await client.loinc_for("zzzznope") is None
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_single_ingredient_beats_richer_combination_label(mock_http):
+    """A combination product is a different medicine, whatever it contains.
+
+    Observed in production: a paracetamol overdose question returned
+    oxycodone toxicity. The pure ACETAMINOPHEN label is OTC and carries
+    no boxed_warning or warnings_and_cautions; OXYCODONE AND
+    ACETAMINOPHEN is a prescription label with every requested section.
+    Ranking section coverage first made the richer, wrong label win.
+    """
+    client = _with(
+        OpenFdaClient(),
+        mock_http(
+            {
+                "label.json": json_response(
+                    {
+                        "results": [
+                            {
+                                "set_id": "combo",
+                                "openfda": {
+                                    "generic_name": ["OXYCODONE AND ACETAMINOPHEN"]
+                                },
+                                "boxed_warning": ["opioid warning"],
+                                "overdosage": ["oxycodone toxicity"],
+                                "warnings_and_cautions": ["w"],
+                                "adverse_reactions": ["a"],
+                            },
+                            {
+                                "set_id": "single",
+                                "openfda": {"generic_name": ["ACETAMINOPHEN"]},
+                                "overdosage": ["hepatic necrosis"],
+                            },
+                        ]
+                    }
+                )
+            }
+        ),
+    )
+    label = await client.get_label(
+        "acetaminophen",
+        ("boxed_warning", "overdosage", "warnings_and_cautions", "adverse_reactions"),
+    )
+    assert label.set_id == "single"
+    assert "hepatic" in label.sections["overdosage"]
     await client.aclose()
