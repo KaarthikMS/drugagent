@@ -20,9 +20,9 @@ Usage, from app/drugagent/:
 
 from __future__ import annotations
 
-from clients.base import HttpClient
 from config import PUBCHEM_REST_URL, PUBCHEM_VIEW_URL
 from probes._harness import Check, clip, run
+from utils.base import HttpClient
 
 IBUPROFEN_CID = 3672
 

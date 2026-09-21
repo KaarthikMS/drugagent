@@ -10,9 +10,9 @@ Usage, from app/drugagent/:
 
 from __future__ import annotations
 
-from clients.base import HttpClient
 from config import RXNORM_BASE_URL
 from probes._harness import Check, run
+from utils.base import HttpClient
 
 # --------------------------------------------------------------------
 # Individual probes

@@ -18,10 +18,10 @@ import time
 
 from bedrock_agentcore.runtime import BedrockAgentCoreApp
 
-from clients import Clients
+from agents.pipeline import handle
 from domain.response import render
 from observability import cw_metrics, logger, metrics, tracer
-from pipeline import handle
+from utils import Clients
 
 app = BedrockAgentCoreApp()
 

@@ -31,7 +31,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
-from clients.medlineplus import MedlinePlusClient
+from utils.medlineplus import MedlinePlusClient
 
 
 @dataclass(frozen=True)

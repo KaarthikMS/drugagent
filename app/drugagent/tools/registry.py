@@ -15,8 +15,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from clients import Clients
 from domain.models import Citation, Severity
+from utils import Clients
 
 
 @dataclass

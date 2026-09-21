@@ -17,12 +17,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from clients.base import HttpClient
 from config import (
     OPENFDA_API_KEY,
     OPENFDA_EVENT_URL,
     OPENFDA_LABEL_URL,
 )
+from utils.base import HttpClient
 
 JURISDICTION = "US"
 DAILYMED_URL = "https://dailymed.nlm.nih.gov/dailymed/drugInfo.cfm?setid={set_id}"

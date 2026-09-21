@@ -13,11 +13,11 @@ because redaction can remove the very words it matches on.
 
 from __future__ import annotations
 
-from clients import Clients
 from domain.models import AgentResponse, Severity
 from domain.response import assemble
 from domain.severity import check_tripwire
 from tools import ToolContext
+from utils import Clients
 
 
 async def handle(prompt: str, clients: Clients) -> AgentResponse:
@@ -34,7 +34,7 @@ async def handle(prompt: str, clients: Clients) -> AgentResponse:
 
     # Imported here so the module can be imported without boto3 present
     # -- the domain tests must not need AWS to run.
-    from agent import build_agent
+    from agents.agent import build_agent
 
     agent = build_agent(context)
     result = await agent.invoke_async(prompt)

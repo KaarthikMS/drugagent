@@ -26,5 +26,8 @@
   "policyEngines": [],
   "configBundles": [],
   "abTests": [],
-  "httpGateways": []
+  "httpGateways": [],
+  "harnesses": [],
+  "datasets": [],
+  "payments": []
 }

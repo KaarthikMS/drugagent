@@ -19,7 +19,7 @@ from functools import lru_cache
 
 from strands import Agent
 
-from model.load import load_model
+from models.load import load_model
 from prompts import SYSTEM_PROMPT
 from tools import ToolContext, build_tools
 

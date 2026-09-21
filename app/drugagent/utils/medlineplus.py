@@ -17,8 +17,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from clients.base import HttpClient
 from config import LOINC_OID, MEDLINEPLUS_CONNECT_URL, MEDLINEPLUS_SEARCH_URL
+from utils.base import HttpClient
 
 # Search results wrap matched words in highlighting markup, escaped into
 # the XML: <span class="qt0">Hypothyroidism</span>. Passed through

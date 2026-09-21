@@ -10,13 +10,13 @@ from __future__ import annotations
 
 import pytest
 
-from clients.clinicaltables import ClinicalTablesClient
-from clients.medlineplus import MedlinePlusClient
-from clients.openfda import OpenFdaClient
-from clients.pubchem import PubChemClient
-from clients.rxclass import DrugClass, RxClassClient
-from clients.rxnorm import RxNormClient
 from tests.conftest import json_response, not_found, xml_response
+from utils.clinicaltables import ClinicalTablesClient
+from utils.medlineplus import MedlinePlusClient
+from utils.openfda import OpenFdaClient
+from utils.pubchem import PubChemClient
+from utils.rxclass import DrugClass, RxClassClient
+from utils.rxnorm import RxNormClient
 
 
 def _with(client_obj, http):

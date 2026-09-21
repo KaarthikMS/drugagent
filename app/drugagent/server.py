@@ -19,11 +19,15 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from clients import Clients
+from agents.pipeline import handle
 from domain.response import render
-from pipeline import handle
+from utils import Clients
 
-WEB = Path(__file__).parent / "web"
+# The dashboard lives at the repository root, alongside the agent
+# package rather than inside it -- it is a separate concern from the
+# deployed runtime, and keeping it out of app/ means it is not packaged
+# into the CodeZip that ships to AgentCore.
+WEB = Path(__file__).resolve().parents[2] / "frontend"
 _clients: Clients | None = None
 
 

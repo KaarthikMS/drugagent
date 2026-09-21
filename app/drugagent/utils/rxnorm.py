@@ -19,8 +19,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 
-from clients.base import HttpClient
 from config import RXNORM_BASE_URL
+from utils.base import HttpClient
 
 # A fuzzy match is NEVER accepted silently. The caller must confirm it
 # with the user before the name is used, and that is not caution -- it is

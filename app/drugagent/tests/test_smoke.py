@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from clients import Clients
+from utils import Clients
 
 pytestmark = pytest.mark.smoke
 

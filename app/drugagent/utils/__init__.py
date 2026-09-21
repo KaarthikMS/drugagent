@@ -16,13 +16,13 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass, field
 
-from clients.clinicaltables import ClinicalTablesClient
-from clients.medlineplus import MedlinePlusClient
-from clients.openfda import OpenFdaClient
-from clients.pubchem import PubChemClient
-from clients.retrieval import MedlinePlusRetriever, Passage, Retriever
-from clients.rxclass import RxClassClient
-from clients.rxnorm import RxNormClient
+from utils.clinicaltables import ClinicalTablesClient
+from utils.medlineplus import MedlinePlusClient
+from utils.openfda import OpenFdaClient
+from utils.pubchem import PubChemClient
+from utils.retrieval import MedlinePlusRetriever, Passage, Retriever
+from utils.rxclass import RxClassClient
+from utils.rxnorm import RxNormClient
 
 __all__ = [
     "Clients",

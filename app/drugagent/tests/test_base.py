@@ -11,8 +11,8 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from clients.base import UpstreamBadRequest, UpstreamUnavailable
 from tests.conftest import json_response, not_found, xml_response
+from utils.base import UpstreamBadRequest, UpstreamUnavailable
 
 
 @pytest.mark.asyncio

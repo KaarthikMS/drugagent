@@ -23,7 +23,7 @@ import asyncio
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
-from clients.base import HttpClient, UpstreamError
+from utils.base import HttpClient, UpstreamError
 
 
 @dataclass

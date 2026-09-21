@@ -20,7 +20,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from clients.base import HttpClient
+from utils.base import HttpClient
 
 
 @pytest.fixture

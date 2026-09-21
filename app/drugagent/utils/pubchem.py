@@ -17,8 +17,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from clients.base import HttpClient
 from config import PUBCHEM_REST_URL, PUBCHEM_VIEW_URL
+from utils.base import HttpClient
 
 GHS_HEADING = "GHS Classification"
 

@@ -14,13 +14,13 @@ Usage, from app/drugagent/:
 
 from __future__ import annotations
 
-from clients.base import HttpClient
 from config import (
     OPENFDA_LABEL_URL,
     SECTION_INTERACTIONS,
     SECTION_OVERDOSAGE,
 )
 from probes._harness import Check, clip, run
+from utils.base import HttpClient
 
 
 async def _search(client: HttpClient, query: str, limit: int = 1) -> dict | None:

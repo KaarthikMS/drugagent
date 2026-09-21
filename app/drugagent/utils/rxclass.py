@@ -19,8 +19,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from clients.base import HttpClient
 from config import RXCLASS_BASE_URL
+from utils.base import HttpClient
 
 ATC = "ATC"
 

@@ -23,8 +23,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from clients.base import HttpClient
 from config import CLINICALTABLES_BASE_URL
+from utils.base import HttpClient
 
 # A search returning more hits than this is too broad to pick from:
 # "hemoglobin" alone matches 508 LOINC items whose top-ranked results
