@@ -75,3 +75,50 @@ async def test_non_json_body_is_an_upstream_failure(mock_http):
     with pytest.raises(UpstreamUnavailable):
         await client.get_json("https://x/html")
     await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_entity_expansion_bomb_is_refused(mock_http):
+    """A billion-laughs payload must not be expanded.
+
+    Tested against this Python before the fix: external entities were
+    already refused ("undefined entity"), but expansion was not -- a
+    four-level bomb produced 30,000 characters and a nine-level one is
+    gigabytes, on a runtime shared by every employee.
+
+    Reaching this needs control of a MedlinePlus response, so the
+    likelihood is low. "The upstream is trustworthy" is the assumption
+    probes/FINDINGS.md exists to avoid making, and the parser is
+    defusedxml for that reason.
+
+    A refused payload surfaces as UpstreamUnavailable, which is correct:
+    we could not read the response, so we degrade to "I cannot answer"
+    rather than to a partial one.
+    """
+    bomb = (
+        '<?xml version="1.0"?>\n'
+        "<!DOCTYPE lolz [\n"
+        ' <!ENTITY lol "lol">\n'
+        ' <!ENTITY lol1 "&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;">\n'
+        ' <!ENTITY lol2 "&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;&lol1;">\n'
+        "]>\n"
+        "<lolz>&lol2;</lolz>"
+    )
+    client = mock_http({"/bomb": xml_response(bomb)})
+    with pytest.raises(UpstreamUnavailable):
+        await client.get_xml("https://x/bomb")
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_ordinary_xml_still_parses(mock_http):
+    """The hardened parser must not break the one XML upstream we have."""
+    body = (
+        "<nlmSearchResult><count>1</count>"
+        '<list><document url="https://x"><content name="title">Thyroid</content>'
+        "</document></list></nlmSearchResult>"
+    )
+    client = mock_http({"/ok": xml_response(body)})
+    root = await client.get_xml("https://x/ok")
+    assert root.findtext("count") == "1"
+    await client.aclose()

@@ -27,6 +27,7 @@ dependencies = [
     # runtime's and silently detach every span from its trace.
     "aws-opentelemetry-distro",
     "opentelemetry-api>=1.36.0",
+    "defusedxml>=0.7.1",
 ]
 
 [dependency-groups]

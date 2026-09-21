@@ -8,9 +8,18 @@ on an API like openFDA costs more than the request itself.
 
 from __future__ import annotations
 
-import xml.etree.ElementTree as ET
-
+# defusedxml, not xml.etree. Tested against this Python (3.14.3):
+# external entities are already refused -- "undefined entity" -- but
+# entity EXPANSION is not. A four-level billion-laughs payload expands
+# to 30,000 characters; a nine-level one is gigabytes, and the runtime
+# is shared by every employee.
+#
+# Reaching it requires control of a MedlinePlus response, so the
+# likelihood is low. "The upstream is trustworthy" is precisely the
+# assumption the probes exist to avoid making, and the fix is an import.
+import defusedxml.ElementTree as ET
 import httpx
+from defusedxml.common import DefusedXmlException
 from tenacity import (
     retry,
     retry_if_exception_type,
@@ -210,7 +219,10 @@ class HttpClient:
 
         try:
             return ET.fromstring(response.text)
-        except ET.ParseError as exc:
+        except (ET.ParseError, DefusedXmlException) as exc:
+            # A refused entity bomb arrives here as an upstream failure,
+            # which is correct: we cannot read the response, so we must
+            # degrade to "I cannot answer" rather than to a partial one.
             raise UpstreamUnavailable(
-                f"{self.source} returned malformed XML", source=self.source
+                f"{self.source} returned malformed or unsafe XML", source=self.source
             ) from exc
