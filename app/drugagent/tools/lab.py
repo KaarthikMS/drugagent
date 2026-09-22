@@ -40,6 +40,7 @@ def make_lab_interpret(ctx: ToolContext):
         ctx.used("lab_interpret")
         report = parse_report(report_text)
         ctx.floor(report.severity_floor)
+        ctx.ground("lab_interpret")
         ctx.caveat(IN_RANGE_CAVEAT)
 
         descriptions = await _describe(ctx, report.analytes)

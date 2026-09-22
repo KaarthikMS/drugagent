@@ -59,6 +59,10 @@ def make_interaction_check(ctx: ToolContext):
             classes_b,
         )
         ctx.floor(result.severity_floor)
+        # The cross-check is grounding whichever way it came out: a
+        # documented interaction quotes label text, and "not documented"
+        # is itself a finding computed from two retrieved sections.
+        ctx.ground("interaction_check")
 
         return {
             "documented": result.documented,

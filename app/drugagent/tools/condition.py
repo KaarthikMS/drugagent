@@ -44,6 +44,8 @@ def make_condition_lookup(ctx: ToolContext):
                 )
             )
 
+        ctx.ground("condition_lookup")
+
         return {
             "found": True,
             "topics": [

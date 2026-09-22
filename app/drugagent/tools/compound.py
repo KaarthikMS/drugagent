@@ -43,6 +43,7 @@ def make_compound_lookup(ctx: ToolContext):
             jurisdiction="international",
         )
         ctx.cite(citation)
+        ctx.ground("compound_lookup")
 
         result = {
             "found": True,

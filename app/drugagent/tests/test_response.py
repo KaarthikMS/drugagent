@@ -49,7 +49,7 @@ def test_emergency_guidance_is_rendered_first():
             tripwire=TripwireHit(
                 reason="possible overdose in progress", floor=Severity.EMERGENCY
             ),
-            tools_used=["toxicity_lookup"],
+            grounding=["toxicity_lookup"],
         )
     )
     assert text.index("emergency") < text.index("Here is some information")
@@ -57,7 +57,7 @@ def test_emergency_guidance_is_rendered_first():
 
 def test_non_emergency_escalation_follows_the_answer():
     text = render(
-        assemble("The answer.", model_severity=Severity.MEDIUM, tools_used=["x"])
+        assemble("The answer.", model_severity=Severity.MEDIUM, grounding=["x"])
     )
     assert text.index("The answer.") < text.index("worth discussing")
 
@@ -68,7 +68,7 @@ def test_caveats_and_sources_survive_rendering():
             "The answer.",
             citations=[Citation(title="Label", url="https://example/x")],
             caveats=["This is the US product label."],
-            tools_used=["drug_label_lookup"],
+            grounding=["drug_label_lookup"],
         )
     )
     assert "US product label" in text
@@ -88,7 +88,7 @@ def test_model_scaffolding_is_stripped():
     response = assemble(
         "<thinking>I should look this up.</thinking>"
         "<response>Metformin treats diabetes.</response>",
-        tools_used=["drug_label_lookup"],
+        grounding=["drug_label_lookup"],
     )
     assert response.answer == "Metformin treats diabetes."
     assert "thinking" not in response.answer
@@ -97,7 +97,7 @@ def test_model_scaffolding_is_stripped():
 def test_stripping_is_case_insensitive_and_multiline():
     response = assemble(
         "<Thinking>\nline one\nline two\n</Thinking>\nThe answer.",
-        tools_used=["x"],
+        grounding=["x"],
     )
     assert response.answer == "The answer."
 
@@ -105,7 +105,7 @@ def test_stripping_is_case_insensitive_and_multiline():
 # ----------------------------------------------------- scope enforcement
 
 
-def test_answer_with_no_tool_call_is_replaced():
+def test_answer_with_no_grounding_is_replaced():
     """The model answered from memory. That is never in scope.
 
     Before this check the assistant explained the Strands tools API and
@@ -117,9 +117,19 @@ def test_answer_with_no_tool_call_is_replaced():
     assert "def square" not in response.answer
 
 
+def test_a_tool_that_ran_but_returned_nothing_is_not_grounding():
+    """Observed: drug_label_lookup errored three times, drug_normalize
+    succeeded, and the model answered from memory. Only tools that
+    RETURN something count."""
+    response = assemble(
+        "Metformin is commonly used to treat type 2 diabetes.", grounding=[]
+    )
+    assert "only help with health questions" in response.answer
+
+
 def test_a_grounded_answer_survives():
     response = assemble(
-        "Metformin treats type 2 diabetes.", tools_used=["drug_label_lookup"]
+        "Metformin treats type 2 diabetes.", grounding=["drug_label_lookup"]
     )
     assert response.answer == "Metformin treats type 2 diabetes."
 
@@ -156,3 +166,30 @@ def test_citations_are_dropped_from_a_refusal():
     )
     assert response.citations == ()
     assert response.caveats == ()
+
+
+# --------------------------------------------------------- input bounds
+
+
+async def test_overlong_prompt_is_refused_before_the_model():
+    """An unbounded prompt is paid for on every turn it stays in context.
+
+    Refused in the pipeline rather than the web layer, so `agentcore
+    invoke` and any future caller are bound by the same rule.
+    """
+    from unittest.mock import AsyncMock
+
+    from agents.pipeline import handle
+    from config import MAX_PROMPT_CHARS
+
+    response = await handle("x" * (MAX_PROMPT_CHARS + 1), AsyncMock())
+    assert "too long" in response.answer
+    assert response.severity is Severity.INFORMATIONAL
+
+
+async def test_a_full_lab_panel_fits_within_the_limit():
+    """The bound must not reject the longest legitimate input."""
+    from config import MAX_PROMPT_CHARS
+
+    panel = "\n".join(f"Analyte {i} 13.2 g/dL 13.0 - 17.0" for i in range(40))
+    assert len(panel) < MAX_PROMPT_CHARS

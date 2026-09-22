@@ -29,6 +29,7 @@ class ToolContext:
 
     clients: Clients
     tools_used: list[str] = field(default_factory=list)
+    grounding: list[str] = field(default_factory=list)
     severity_floors: list[Severity] = field(default_factory=list)
     citations: list[Citation] = field(default_factory=list)
     caveats: list[str] = field(default_factory=list)
@@ -43,6 +44,21 @@ class ToolContext:
         answered, since no tool exists for it to reach for.
         """
         self.tools_used.append(tool)
+
+    def ground(self, tool: str) -> None:
+        """Record that a tool actually RETURNED something to answer from.
+
+        Distinct from used(). A tool that ran and found nothing provides
+        no grounding, and neither does a lookup that failed -- observed:
+        drug_label_lookup errored three times, drug_normalize had
+        succeeded, and the model answered "metformin treats type 2
+        diabetes" from its own memory with the tool-use check satisfied.
+
+        Only tools that return retrievable content call this. Name
+        normalisation never does: knowing what a drug is called is not
+        knowing anything about it.
+        """
+        self.grounding.append(tool)
 
     def floor(self, severity: Severity) -> None:
         self.severity_floors.append(severity)

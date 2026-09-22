@@ -197,6 +197,21 @@ SECTION_PRESETS: Final[dict[str, tuple[str, ...]]] = {
 MAX_SECTION_CHARS: Final = 4000
 
 # --------------------------------------------------------------------
+# Input bounds
+#
+# An unbounded prompt is a cost and a latency problem before it is a
+# security one: every character is paid for on every turn it stays in
+# context. 4,000 characters is roughly a full lab panel with headers,
+# which is the longest legitimate input this system takes.
+#
+# The limit is enforced in domain/, not in the web layer, so it holds
+# for every caller -- the dashboard, `agentcore invoke`, and anything
+# added later.
+# --------------------------------------------------------------------
+
+MAX_PROMPT_CHARS: Final = 4000
+
+# --------------------------------------------------------------------
 # Severity
 # --------------------------------------------------------------------
 

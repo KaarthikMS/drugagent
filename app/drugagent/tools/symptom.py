@@ -46,6 +46,9 @@ def make_symptom_triage(ctx: ToolContext):
         )
         result = triage(report)
         ctx.floor(result.floor)
+        # A ruleset verdict is grounding without a citation: the rules
+        # are in the repository and reviewable, which a web page is not.
+        ctx.ground("symptom_triage")
 
         return {
             "urgency": result.floor.value,

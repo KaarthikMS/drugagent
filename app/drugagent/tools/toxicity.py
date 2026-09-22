@@ -76,6 +76,9 @@ def make_toxicity_lookup(ctx: ToolContext):
             result["reported_events_caveat"] = events.caveat
             ctx.caveat(events.caveat)
 
+        if label or events:
+            ctx.ground("toxicity_lookup")
+
         if not label and not events:
             result["message"] = f"No toxicity information found for {generic_name}."
 

@@ -64,7 +64,7 @@ def assemble(
     citations: list[Citation] | None = None,
     caveats: list[str] | None = None,
     confirmation: str | None = None,
-    tools_used: list[str] | None = None,
+    grounding: list[str] | None = None,
 ) -> AgentResponse:
     """Combine everything into the final response.
 
@@ -72,12 +72,20 @@ def assemble(
     and every floor a tool raised. No input can lower another, which is
     what lets each component stay ignorant of the others.
 
-    An answer produced with NO tool call is replaced. Every question this
-    system is for reaches at least one tool; a question that reaches none
-    was answered from the model's own memory, which is ungrounded by
+    An answer with NO GROUNDING is replaced. Every question this system
+    is for reaches a tool that returns something -- label text, a topic
+    summary, a ruleset verdict, parsed lab values. An answer with none of
+    that came from the model's own memory, which is ungrounded by
     definition and is also exactly what an off-topic answer looks like.
-    Checking for tool use catches both with one rule, and unlike a list
-    of banned subjects it needs no guess about what people will ask.
+    One rule catches both, and unlike a list of banned subjects it needs
+    no guess about what people will ask.
+
+    Grounding means a tool RETURNED something, not that a tool ran. The
+    weaker test let this through: drug_label_lookup failed three times,
+    drug_normalize had succeeded, and the model answered "metformin
+    treats type 2 diabetes" from memory with the check satisfied. A
+    lookup that errored grounds nothing, and knowing what a drug is
+    called is not knowing anything about it.
 
     The exception is a confirmation request -- "did you mean metformin?"
     is a legitimate reply with nothing looked up yet.
@@ -91,7 +99,7 @@ def assemble(
     reason = tripwire.reason if tripwire else None
     escalation = escalation_text(severity, reason)
 
-    grounded = bool(tools_used) or confirmation is not None
+    grounded = bool(grounding) or confirmation is not None
     # The escalation is NOT dropped along with the answer. If the
     # tripwire fired, the urgent guidance stands regardless of whether
     # the model managed to look anything up.

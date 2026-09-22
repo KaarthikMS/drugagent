@@ -53,6 +53,7 @@ def make_drug_label_lookup(ctx: ToolContext):
             published=label.effective_time,
         )
         ctx.cite(citation)
+        ctx.ground("drug_label_lookup")
         ctx.caveat(
             "This is the US product label. Formulations and strengths "
             "available in India can differ."

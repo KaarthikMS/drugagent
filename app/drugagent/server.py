@@ -20,15 +20,20 @@ Cognito and API Gateway go in front before an employee uses it.
 from __future__ import annotations
 
 import json
+import logging
 import os
+import re
 import uuid
 from pathlib import Path
 
 import boto3
+from botocore.config import Config
 from botocore.exceptions import ClientError
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
 
 WEB = Path(__file__).resolve().parents[2] / "frontend"
 STATE = (
@@ -56,12 +61,36 @@ def _runtime_arn() -> str:
 
 
 app = FastAPI(title="Health Assistant")
-_client = boto3.client("bedrock-agentcore", region_name=REGION)
+
+# Explicit timeouts. Without them botocore waits 60s to connect and 60s
+# to read, and a hung runtime holds a browser connection for two minutes
+# with no way for the page to recover.
+_client = boto3.client(
+    "bedrock-agentcore",
+    region_name=REGION,
+    config=Config(
+        connect_timeout=5,
+        read_timeout=120,
+        retries={"max_attempts": 2, "mode": "standard"},
+    ),
+)
+
+# Session ids this server issued: the "dash-" prefix plus a uuid4 hex.
+# Anything else is rejected rather than forwarded.
+#
+# A session id selects a conversation inside the runtime. Accepting an
+# arbitrary caller-supplied string means accepting a request to join a
+# conversation, which becomes reading someone else's history the moment
+# AgentCore Memory is wired in (step 7). Validating the shape keeps the
+# id unguessable; only Cognito makes it OWNED -- see the auth plan.
+_SESSION_ID = re.compile(r"^dash-[0-9a-f]{32}$")
 
 
 class Ask(BaseModel):
-    prompt: str
-    session_id: str | None = None
+    # Bounded at the edge as well as in domain/. The domain check is the
+    # guarantee; this one stops a 10 MB body being parsed at all.
+    prompt: str = Field(max_length=8000)
+    session_id: str | None = Field(default=None, max_length=64)
 
 
 @app.post("/api/ask")
@@ -70,7 +99,9 @@ async def ask(body: Ask) -> dict:
     # AgentCore requires a session id of at least 33 characters. A uuid4
     # hex string is 32, so a prefix is added rather than trimming the
     # entropy.
-    session_id = body.session_id or f"dash-{uuid.uuid4().hex}"
+    session_id = body.session_id or ""
+    if not _SESSION_ID.match(session_id):
+        session_id = f"dash-{uuid.uuid4().hex}"
 
     try:
         result = _client.invoke_agent_runtime(
@@ -79,16 +110,24 @@ async def ask(body: Ask) -> dict:
             payload=json.dumps({"prompt": body.prompt}).encode(),
         )
     except ClientError as exc:
-        # Surfaced rather than swallowed. An AccessDenied here means the
-        # caller cannot invoke the runtime, and a generic "something went
-        # wrong" would send you looking in the wrong place.
+        # The error CODE reaches the browser; the message does not. A
+        # botocore message carries the runtime ARN, the account id and
+        # the role name, and none of that belongs in a page that will
+        # eventually be served to a hundred employees. The full
+        # exception goes to the server log, where an operator can read
+        # it.
         code = exc.response.get("Error", {}).get("Code", "Unknown")
+        logger.exception("runtime invocation failed (%s)", code)
         return {
-            "answer": f"Could not reach the agent runtime ({code}).",
+            "answer": (
+                "I could not reach the assistant just now. Please try again "
+                "in a moment."
+            ),
             "severity": "informational",
             "escalation": None,
-            "caveats": [str(exc)],
+            "caveats": [],
             "citations": [],
+            "error_code": code,
             "session_id": session_id,
         }
 
