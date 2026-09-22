@@ -12,10 +12,6 @@ Design decisions and their rationale live in [`docs/`](../../docs): `architectur
 ```bash
 uv sync --all-groups
 
-# Dashboard. Serves the page and forwards questions to the DEPLOYED
-# runtime -- it does not run the agent locally.
-uv run uvicorn server:app --port 8080     # → http://127.0.0.1:8080
-
 # Tests
 uv run pytest -m "not smoke"              # 184 tests, no network, <1s
 uv run pytest                             # adds live API smoke tests
@@ -24,17 +20,14 @@ uv run pytest                             # adds live API smoke tests
 uv run python -m probes.probe_rxnorm
 ```
 
-The dashboard needs credentials that can call `bedrock-agentcore:InvokeAgentRuntime`
-in `ap-south-1` — not Bedrock model access, since the model is invoked inside the
-runtime. The tests marked `not smoke` need neither credentials nor network.
+The tests marked `not smoke` need neither credentials nor network.
 
-**Why the dashboard proxies instead of running the pipeline in-process:** so the
-browser exercises the same path an employee would — same model, same guardrail,
-same IAM role, same logs. Running it locally tests a different system, and that
-difference already cost us once: a missing `bedrock:ApplyGuardrail` permission was
-invisible locally because local runs had no guardrail attached.
+The browser reaches the agent through Cognito → API Gateway → a proxy Lambda
+(see `agentcore/cdk/AUTH.md`). There is no local server: a browser cannot sign a
+SigV4 request, and the thing that signs it is now the thing that also checks who
+is asking.
 
-To run the pipeline directly anyway (debugging domain logic without a deploy):
+To exercise the pipeline directly while working on domain logic:
 
 ```bash
 uv run python -c "
@@ -57,7 +50,6 @@ asyncio.run(main())
 
 ```
 main.py         AgentCore Runtime entrypoint — instrumentation only
-server.py       local demo server (not the deployment path)
 
 agents/         agent.py — Strands assembly
                 pipeline.py — tripwire → agent → severity gate
@@ -81,7 +73,7 @@ observability/  OTel traces and metrics. Never content.
 probes/         live API verification, with controls — see FINDINGS.md
 tests/          unit (mocked transport) + smoke (live)
 
-../../frontend/ the dashboard that server.py serves
+../../frontend/ the dashboard (static; served from S3 + CloudFront)
 ```
 
 Directory names follow the AgentCore convention used across this account —
@@ -124,6 +116,5 @@ including six different ways of saying "nothing found".
 
 - Clinical review of `domain/severity.py` (tripwires), `domain/triage.py` (rules),
   `CRITICAL_RANGE_MULTIPLE` in `domain/labs.py`, and `domain/brands.py`
-- Cognito + API Gateway in front of the runtime (`server.py` has no auth)
-- Bedrock Guardrails attached at invoke time
 - Organisational sign-off on accepting health data
+- An org email domain set in `agentcore/cdk/cdk.json` before deploying auth

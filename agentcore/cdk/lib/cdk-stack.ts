@@ -7,6 +7,8 @@ import {
 import { CfnOutput, Stack, type StackProps } from 'aws-cdk-lib';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
+import { Auth } from './auth';
+import { Hosting } from './hosting';
 import { ObservabilityDashboard } from './observability-dashboard';
 
 export interface AgentCoreStackProps extends StackProps {
@@ -22,6 +24,13 @@ export interface AgentCoreStackProps extends StackProps {
    * Credential provider ARNs from deployed state, keyed by credential name.
    */
   credentials?: Record<string, { credentialProviderArn: string; clientSecretArn?: string }>;
+  /**
+   * Email domains permitted to hold an account, e.g. ['company.com'].
+   * Empty disables the authenticated path entirely -- see below.
+   */
+  allowedEmailDomains?: string[];
+  /** Origins allowed to call the API. Where the dashboard is served from. */
+  allowedOrigins?: string[];
 }
 
 /**
@@ -76,6 +85,36 @@ export class AgentCoreStack extends Stack {
           })
         );
       }
+    }
+
+    // ----------------------------------------------------------------
+    // Authenticated path: Cognito -> API Gateway -> proxy -> runtime
+    //
+    // Built only when an email domain is configured. Without one the
+    // pool would reject every sign-up, so an unconfigured deployment
+    // gets no auth stack rather than a broken one -- and the runtime
+    // stays reachable by IAM, which is how it is invoked today.
+    // ----------------------------------------------------------------
+    if (drugAgentEnv && props.allowedEmailDomains?.length) {
+      const hosting = new Hosting(this, 'Hosting', { projectName: spec.name });
+
+      // The distribution is created first so its domain can be written
+      // into Cognito's callback list and the API's CORS allow-list.
+      // Both are resolved at deploy time, which is what avoids the
+      // usual two-pass deploy: build hosting, read the URL, redeploy
+      // auth with it.
+      //
+      // localhost stays in the list for development. It is not a hole:
+      // a token is still required, and only a person who can already
+      // sign in can obtain one.
+      new Auth(this, 'Auth', {
+        projectName: spec.name,
+        runtimeArn: drugAgentEnv.runtime.runtimeArn,
+        allowedEmailDomains: props.allowedEmailDomains,
+        allowedOrigins: props.allowedOrigins?.length
+          ? props.allowedOrigins
+          : [`https://${hosting.distribution.distributionDomainName}`, 'http://localhost:8080'],
+      });
     }
 
     // Instantiate custom observability dashboard

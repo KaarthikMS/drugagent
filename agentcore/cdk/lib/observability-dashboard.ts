@@ -1,11 +1,5 @@
 import { Construct } from 'constructs';
-import {
-  Dashboard,
-  GraphWidget,
-  SingleValueWidget,
-  TextWidget,
-  Metric,
-} from 'aws-cdk-lib/aws-cloudwatch';
+import { Dashboard, GraphWidget, SingleValueWidget, TextWidget, Metric } from 'aws-cdk-lib/aws-cloudwatch';
 
 export interface ObservabilityDashboardProps {
   projectName: string;
@@ -48,9 +42,7 @@ export class ObservabilityDashboard extends Construct {
     // Helper functions to generate metrics for all model paths
     const getBedrockDurationMetrics = (metricName: string, statistic = 'Sum', labelPrefix: string) => {
       return bedrockModels.map(model => {
-        const shortLabel = model.includes('inference-profile')
-          ? 'Inference Profile'
-          : model.split('.').pop() || model;
+        const shortLabel = model.includes('inference-profile') ? 'Inference Profile' : model.split('.').pop() || model;
         return new Metric({
           namespace: 'bedrock-agentcore',
           metricName,
@@ -69,9 +61,7 @@ export class ObservabilityDashboard extends Construct {
 
     const getBedrockTokenMetrics = (tokenType: 'input' | 'output', labelPrefix: string) => {
       return bedrockModels.map(model => {
-        const shortLabel = model.includes('inference-profile')
-          ? 'Inference Profile'
-          : model.split('.').pop() || model;
+        const shortLabel = model.includes('inference-profile') ? 'Inference Profile' : model.split('.').pop() || model;
         return new Metric({
           namespace: 'bedrock-agentcore',
           metricName: 'gen_ai.client.token.usage',
@@ -115,27 +105,19 @@ export class ObservabilityDashboard extends Construct {
     dashboard.addWidgets(
       new SingleValueWidget({
         title: 'Incoming Agent Requests (Total)',
-        metrics: [
-          cwMetric('AgentRequests'),
-        ],
+        metrics: [cwMetric('AgentRequests')],
         width: 8,
         height: 6,
       }),
       new SingleValueWidget({
         title: 'Success vs Failure Counts',
-        metrics: [
-          cwMetric('AgentSuccess'),
-          cwMetric('AgentFailure'),
-        ],
+        metrics: [cwMetric('AgentSuccess'), cwMetric('AgentFailure')],
         width: 8,
         height: 6,
       }),
       new GraphWidget({
         title: 'Agent Processing Latency (ms)',
-        left: [
-          cwMetric('AgentLatency', 'Average'),
-          cwMetric('AgentLatency', 'p99'),
-        ],
+        left: [cwMetric('AgentLatency', 'Average'), cwMetric('AgentLatency', 'p99')],
         width: 8,
         height: 6,
       })
@@ -178,10 +160,7 @@ export class ObservabilityDashboard extends Construct {
     dashboard.addWidgets(
       new SingleValueWidget({
         title: 'Tool Executions Status',
-        metrics: [
-          cwMetric('ToolSuccess'),
-          cwMetric('ToolFailure'),
-        ],
+        metrics: [cwMetric('ToolSuccess'), cwMetric('ToolFailure')],
         width: 6,
         height: 6,
       }),
@@ -215,11 +194,7 @@ export class ObservabilityDashboard extends Construct {
     dashboard.addWidgets(
       new GraphWidget({
         title: 'DailyMed Requests & Failures',
-        left: [
-          cwMetric('DailyMedRequests'),
-          cwMetric('DailyMedSuccess'),
-          cwMetric('DailyMedFailure'),
-        ],
+        left: [cwMetric('DailyMedRequests'), cwMetric('DailyMedSuccess'), cwMetric('DailyMedFailure')],
         width: 12,
         height: 6,
       }),

@@ -1,15 +1,30 @@
 {
   "app": "node dist/bin/cdk.js",
   "watch": {
-    "include": ["**"],
-    "exclude": ["README.md", "cdk*.json", "tsconfig.json", "package*.json", "yarn.lock", "node_modules", "dist", "test"]
+    "include": [
+      "**"
+    ],
+    "exclude": [
+      "README.md",
+      "cdk*.json",
+      "tsconfig.json",
+      "package*.json",
+      "yarn.lock",
+      "node_modules",
+      "dist",
+      "test"
+    ]
   },
   "context": {
     "@aws-cdk/aws-signer:signingProfileNamePassedToCfn": true,
     "@aws-cdk/aws-ecs-patterns:secGroupsDisablesImplicitOpenListener": true,
     "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
     "@aws-cdk/core:checkSecretUsage": true,
-    "@aws-cdk/core:target-partitions": ["aws", "aws-cn", "aws-us-gov"],
+    "@aws-cdk/core:target-partitions": [
+      "aws",
+      "aws-cn",
+      "aws-us-gov"
+    ],
     "@aws-cdk-containers/ecs-service-extensions:enableDefaultLogDriver": true,
     "@aws-cdk/aws-ec2:uniqueImdsv2TemplateName": true,
     "@aws-cdk/aws-ecs:arnFormatIncludesClusterName": true,
@@ -83,6 +98,7 @@
     "@aws-cdk/aws-s3:publicAccessBlockedByDefault": true,
     "@aws-cdk/aws-lambda:useCdkManagedLogGroup": true,
     "@aws-cdk/aws-elasticloadbalancingv2:networkLoadBalancerWithSecurityGroupByDefault": true,
-    "@aws-cdk/aws-ecs-patterns:uniqueTargetGroupId": true
+    "@aws-cdk/aws-ecs-patterns:uniqueTargetGroupId": true,
+    "allowedEmailDomains": "REPLACE_WITH_YOUR_DOMAIN.com"
   }
 }

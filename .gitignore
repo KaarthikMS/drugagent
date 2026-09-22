@@ -17,3 +17,10 @@ venv/
 # Tool caches
 .pytest_cache/
 .ruff_cache/
+
+# Generated per deployment from stack outputs
+frontend/config.js
+
+# CDK build output
+agentcore/cdk/dist/
+agentcore/cdk/cdk.out/

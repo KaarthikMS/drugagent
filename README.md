@@ -30,26 +30,28 @@ eight tools, emergency tripwire, severity gate, citations, Indian brand
 resolution, lab interpretation by pasted text, and a dashboard that calls the
 deployed runtime.
 
-**Not built yet:** Cognito auth, API Gateway, AgentCore Memory, lab report file
-upload (PDF/photo), online evaluators. See
-[`docs/implementation-plan.md`](docs/implementation-plan.md) steps 7–9.
+**Not built yet:** AgentCore Memory, lab report file upload (PDF/photo), online
+evaluators. See [`docs/implementation-plan.md`](docs/implementation-plan.md).
 
 ---
 
 ## Run it
 
 ```bash
-cd app/drugagent
-uv sync --all-groups
-uv run uvicorn server:app --port 8080     # → http://127.0.0.1:8080
+# 1. set your org email domain
+#    agentcore/cdk/cdk.json → context.allowedEmailDomains
+
+# 2. deploy everything
+agentcore deploy
+
+# 3. point the page at the stack it talks to
+scripts/write-frontend-config.sh
 ```
 
-The dashboard **does not run the agent**. It serves the page and forwards each
-question to the deployed AgentCore runtime, so the browser exercises the same
-path an employee would — same model, same guardrail, same IAM role, same logs.
+Employees sign in with their work email through Cognito. The browser never holds
+AWS credentials — see [`agentcore/cdk/AUTH.md`](agentcore/cdk/AUTH.md).
 
-Needs credentials that can call `bedrock-agentcore:InvokeAgentRuntime` in
-`ap-south-1`. The unit tests (`uv run pytest -m "not smoke"`) need neither
+The unit tests (`cd app/drugagent && uv run pytest -m "not smoke"`) need neither
 credentials nor network.
 
 ---
@@ -58,8 +60,10 @@ credentials nor network.
 
 ```mermaid
 flowchart TD
-    U["Employee"] --> FE["Web dashboard"]
-    FE --> TW
+    U["Employee"] --> FE["Dashboard<br/>S3 + CloudFront"]
+    FE -->|Cognito JWT| GW["API Gateway<br/>JWT authorizer"]
+    GW --> PX["Proxy Lambda<br/>session id derived from sub"]
+    PX --> TW
 
     subgraph RT["Runtime"]
         direction TB
@@ -145,6 +149,6 @@ support its claim. Indian brand names are resolved locally
   triage ruleset (`domain/triage.py`), `CRITICAL_RANGE_MULTIPLE`
   (`domain/labs.py`) and the brand map (`domain/brands.py`). All four are plain
   readable rules, deliberately, so a clinician can check them.
-- Cognito + API Gateway in front of the runtime. The runtime itself is
-  IAM-protected, but the dashboard that calls it is not.
 - Organisational sign-off on accepting employee health data.
+- Invite the first users: `aws cognito-idp admin-create-user` (the pool is
+  admin-invite only).

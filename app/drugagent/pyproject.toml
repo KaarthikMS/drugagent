@@ -34,10 +34,6 @@ dependencies = [
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.24.0",
-    # Local demo server only. The deployed runtime is entered through
-    # main.py and never imports these.
-    "fastapi>=0.115.0",
-    "uvicorn[standard]>=0.30.0",
 ]
 
 [tool.hatch.build.targets.wheel]
