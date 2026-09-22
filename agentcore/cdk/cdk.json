@@ -99,6 +99,6 @@
     "@aws-cdk/aws-lambda:useCdkManagedLogGroup": true,
     "@aws-cdk/aws-elasticloadbalancingv2:networkLoadBalancerWithSecurityGroupByDefault": true,
     "@aws-cdk/aws-ecs-patterns:uniqueTargetGroupId": true,
-    "allowedEmailDomains": "REPLACE_WITH_YOUR_DOMAIN.com"
+    "allowedEmailDomains": "grootan.com"
   }
 }
