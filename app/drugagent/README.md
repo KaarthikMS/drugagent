@@ -22,10 +22,11 @@ uv run python -m probes.probe_rxnorm
 
 The tests marked `not smoke` need neither credentials nor network.
 
-The browser reaches the agent through Cognito → API Gateway → a proxy Lambda
-(see `agentcore/cdk/AUTH.md`). There is no local server: a browser cannot sign a
-SigV4 request, and the thing that signs it is now the thing that also checks who
-is asking.
+The browser reaches the agent through API Gateway → a proxy Lambda (see
+`agentcore/cdk/lib/api.ts`). There is no local server: a browser cannot sign a
+SigV4 request, so the proxy Lambda holds the credentials that do. There is no
+auth in front of it either — see "Unauthenticated by design" in the root
+`CLAUDE.md`.
 
 To exercise the pipeline directly while working on domain logic:
 
@@ -73,7 +74,7 @@ observability/  OTel traces and metrics. Never content.
 probes/         live API verification, with controls — see FINDINGS.md
 tests/          unit (mocked transport) + smoke (live)
 
-../../frontend/ the dashboard (static; served from S3 + CloudFront)
+../../frontend/ the dashboard (static; run locally, no hosting stack)
 ```
 
 Directory names follow the AgentCore convention used across this account —

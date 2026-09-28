@@ -56,14 +56,13 @@ async function main() {
 
   const app = new App();
 
-  // Auth configuration. Kept out of agentcore.json, which is schema
-  // validated by the CLI and has no place for it.
+  // The API's CORS allow-list. Kept out of agentcore.json, which is
+  // schema validated by the CLI and has no place for it.
   //
-  //   cdk deploy -c allowedEmailDomains=company.com
-  //   cdk deploy -c allowedOrigins=https://health.company.com
+  //   cdk deploy -c allowedOrigins=http://localhost:8080
   //
-  // or set them in cdk.json under "context". With no domain configured
-  // the auth stack is not built at all -- see AgentCoreStack.
+  // or set it in cdk.json under "context". Defaults to localhost:8080 --
+  // see AgentCoreStack.
   const csv = (value: unknown): string[] =>
     typeof value === 'string'
       ? value
@@ -72,7 +71,6 @@ async function main() {
           .filter(Boolean)
       : [];
 
-  const allowedEmailDomains = csv(app.node.tryGetContext('allowedEmailDomains'));
   const allowedOrigins = csv(app.node.tryGetContext('allowedOrigins'));
 
   for (const target of targets) {
@@ -90,7 +88,6 @@ async function main() {
       spec,
       mcpSpec,
       credentials,
-      allowedEmailDomains,
       allowedOrigins,
       env,
       description: `AgentCore stack for ${spec.name} deployed to ${target.name} (${target.region})`,

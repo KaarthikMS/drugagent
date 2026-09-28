@@ -63,13 +63,11 @@ answered), and anything about a third party who is not the user.
 ```mermaid
 flowchart TB
     subgraph CLIENT["Client"]
-        FE["React frontend<br/>Amplify / S3 + CloudFront"]
-        COG["Cognito User Pool<br/>org email domain restricted"]
-        FE <--> COG
+        FE["Frontend<br/>run locally, unauthenticated -- see CLAUDE.md"]
     end
 
     subgraph EDGE["Edge"]
-        APIGW["API Gateway<br/>JWT authorizer"]
+        APIGW["API Gateway"]
         S3["S3 upload bucket<br/>presigned PUT, SSE-KMS<br/>lifecycle: delete"]
     end
 
@@ -792,7 +790,7 @@ That is the majority of the safety surface, by design.
 | Health data at rest | Memory stores distilled context, not raw messages or values |
 | Uploaded reports | Deleted after parse; S3 lifecycle as backstop; SSE-KMS at rest |
 | Retention | Bounded TTL on memory |
-| Cross-user exposure | `actorId` = Cognito `sub`; no shared namespace |
+| Cross-user exposure | `actorId` from an authenticated identity; no shared namespace — needs real auth in front of the API first, see CLAUDE.md |
 | Employer access | No org-wide query view exists by design |
 | Identifiers in prompts | Guardrails redact before model and before memory |
 | Identifiers on the report | Name, DOB, patient ID redacted at parse, before the model |

@@ -38,18 +38,19 @@ evaluators. See [`docs/implementation-plan.md`](docs/implementation-plan.md).
 ## Run it
 
 ```bash
-# 1. set your org email domain
-#    agentcore/cdk/cdk.json → context.allowedEmailDomains
-
-# 2. deploy everything
+# 1. deploy everything
 agentcore deploy
 
-# 3. point the page at the stack it talks to
+# 2. point the page at the stack it talks to
 scripts/write-frontend-config.sh
+
+# 3. run the dashboard locally
+cd frontend && python3 -m http.server 8080
+# open http://localhost:8080
 ```
 
-Employees sign in with their work email through Cognito. The browser never holds
-AWS credentials — see [`agentcore/cdk/AUTH.md`](agentcore/cdk/AUTH.md).
+There is no login — see "Unauthenticated by design" in `CLAUDE.md` for why,
+and what has to change before this is reachable by anyone else.
 
 The unit tests (`cd app/drugagent && uv run pytest -m "not smoke"`) need neither
 credentials nor network.
@@ -60,9 +61,9 @@ credentials nor network.
 
 ```mermaid
 flowchart TD
-    U["Employee"] --> FE["Dashboard<br/>S3 + CloudFront"]
-    FE -->|Cognito JWT| GW["API Gateway<br/>JWT authorizer"]
-    GW --> PX["Proxy Lambda<br/>session id derived from sub"]
+    U["Employee (local)"] --> FE["Dashboard<br/>run locally, no auth"]
+    FE --> GW["API Gateway"]
+    GW --> PX["Proxy Lambda<br/>session id from the client"]
     PX --> TW
 
     subgraph RT["Runtime"]
@@ -145,10 +146,10 @@ support its claim. Indian brand names are resolved locally
 
 ## Before real users
 
+- **Real auth in front of the API.** It is currently unauthenticated — see
+  "Unauthenticated by design" in `CLAUDE.md`.
 - **Clinical review** of the emergency tripwires (`domain/severity.py`), the
   triage ruleset (`domain/triage.py`), `CRITICAL_RANGE_MULTIPLE`
   (`domain/labs.py`) and the brand map (`domain/brands.py`). All four are plain
   readable rules, deliberately, so a clinician can check them.
 - Organisational sign-off on accepting employee health data.
-- Invite the first users: `aws cognito-idp admin-create-user` (the pool is
-  admin-invite only).

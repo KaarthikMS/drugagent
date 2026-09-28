@@ -270,9 +270,9 @@ log output.
 | # | Change | Where |
 |---|---|---|
 | 23 | AgentCore Memory resource, TTL, strategy | `agentcore.json` |
-| 24 | Memory wiring, `actorId` = Cognito `sub` | `main.py` |
-| 25 | Cognito user pool, org email domain restriction (~100 users) | CDK |
-| 26 | API Gateway + JWT authorizer | CDK |
+| 24 | Memory wiring, `actorId` from an authenticated identity — blocked on 25 | `main.py` |
+| 25 | Real auth in front of the API. A Cognito Hosted UI attempt did not work and was removed — see CLAUDE.md "Unauthenticated by design" for the diagnostic trail. Next attempt should budget for an AWS Support case, or consider IAM SigV4 / an API key instead | CDK |
+| 26 | API Gateway (built, unauthenticated — `api.ts`) | CDK |
 | 27 | S3 upload bucket: SSE-KMS, 1-day lifecycle, CORS, no public access | CDK |
 | 28 | Dashboard + alarm on failed file deletion | `observability-dashboard.ts` |
 
@@ -285,16 +285,16 @@ the previous turn; an uploaded object is provably gone.
 
 | # | Item |
 |---|---|
-| 29 | React app, Cognito hosted UI or Amplify auth |
-| 30 | Chat interface, streaming responses |
+| 29 | Chat interface (built — vanilla JS, no framework, runs locally) |
+| 30 | Streaming responses |
 | 31 | File upload: PDF + photo, presigned PUT, progress |
-| 32 | Citation rendering with source links |
-| 33 | Escalation block styling — visually distinct, not dismissible |
+| 32 | Citation rendering with source links (built) |
+| 33 | Escalation block styling — visually distinct, not dismissible (built) |
 | 34 | Lab result table: flag, value, range, range source, unparsed rows shown |
-| 35 | Hosting: Amplify, or S3 + CloudFront |
+| 35 | Hosting, once step 25 lands real auth — S3 + CloudFront was tried and torn down alongside the Cognito attempt; re-evaluate hosting choice together with the auth choice |
 
-**Exit criterion:** log in with an org email, ask, get a cited answer; upload a report,
-get flags with their reference source shown.
+**Exit criterion:** ask, get a cited answer; upload a report, get flags with their
+reference source shown.
 
 ---
 
@@ -374,7 +374,7 @@ when 400 would do multiplies every downstream cost for the life of the project.
 | Nova Lite tool-routing across 8 tools | Step 9 | Its weakest area. One constant to swap if evaluation says so. |
 | Vision model or Textract for the image path | Step 5 | Behind `extract()`; decide on measured accuracy against a real report |
 | Memory strategy | Step 7 | `SUMMARIZATION` likely; `SEMANTIC` may retain more than intended |
-| Org email domain | Step 7 | Needed for the Cognito restriction |
-| Frontend hosting | Step 8 | Amplify vs S3 + CloudFront |
+| Auth approach | Step 7 | Cognito Hosted UI tried and removed — see CLAUDE.md. Next choice needed before step 25 |
+| Frontend hosting | Step 8 | Decide together with auth — see step 35 |
 | Clinical review of `triage.py` and critical values | Before real users | Not a technical sign-off |
 | Organisational sign-off on accepting lab uploads | Before real users | PHI in the account is a policy decision |

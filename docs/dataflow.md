@@ -21,9 +21,8 @@ Every text request, regardless of type.
 ```mermaid
 sequenceDiagram
     autonumber
-    actor U as Employee
+    actor U as Employee (local)
     participant FE as Frontend
-    participant CG as Cognito
     participant GW as API Gateway
     participant RT as Runtime handler
     participant TW as Tripwire
@@ -32,12 +31,10 @@ sequenceDiagram
     participant AG as Agent
     participant SG as Severity gate
 
+    Note over FE,GW: Unauthenticated -- see CLAUDE.md
     U->>FE: question
-    FE->>CG: authenticate (org email)
-    CG-->>FE: JWT (sub = user id)
-    FE->>GW: POST /chat + JWT
-    GW->>GW: validate JWT
-    GW->>RT: payload + sub + trace id
+    FE->>GW: POST /chat + client-chosen session id
+    GW->>RT: payload + session id + trace id
 
     RT->>TW: scan for emergency phrases
     TW-->>RT: severity floor (usually none)
@@ -377,7 +374,7 @@ to undo another.
 |---|---|---|
 | Frontend → API Gateway | question, JWT, object key | credentials in body, file bytes |
 | Frontend → S3 | file bytes, presigned URL | user identity beyond the key |
-| API Gateway → Runtime | question, Cognito `sub`, trace id | raw tokens |
+| API Gateway → Runtime | question, session id, trace id | raw tokens |
 | Runtime → Tripwire | raw question | — |
 | Runtime → Guardrails | raw question | — |
 | Guardrails → Model | redacted question | direct identifiers |

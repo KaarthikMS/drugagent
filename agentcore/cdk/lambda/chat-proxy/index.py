@@ -5,23 +5,18 @@ Sits between API Gateway and the AgentCore runtime, and exists for one
 reason: InvokeAgentRuntime requires SigV4, and a browser cannot produce
 it without holding AWS credentials. This function holds them instead.
 
-It replaces the local FastAPI server, which did the same signing with a
-developer's credentials and no authentication in front of it.
-
-The line that matters is the session id. It is DERIVED from the
-authenticated Cognito subject and never read from the request. A
-client-supplied session id is a request to join a conversation, which
-becomes reading someone else's history the moment AgentCore Memory is
-enabled. Deriving it makes the conversation owned rather than merely
-unguessable.
+There is no authenticator in front of this route. The session id is
+whatever the client sends -- there is no authenticated identity left to
+derive it from, and nothing here treats a session id as more than a
+conversation label a browser tab picked for itself.
 """
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import os
+import uuid
 
 import boto3
 from botocore.config import Config
@@ -32,6 +27,10 @@ logger.setLevel(logging.INFO)
 
 RUNTIME_ARN = os.environ["AGENT_RUNTIME_ARN"]
 MAX_PROMPT_CHARS = int(os.environ.get("MAX_PROMPT_CHARS", "4000"))
+
+# AgentCore requires at least 33 characters.
+MIN_SESSION_ID_LEN = 33
+MAX_SESSION_ID_LEN = 128
 
 # Explicit timeouts. The default waits 60s to connect and 60s to read,
 # which outlives API Gateway's own 30s integration timeout and turns a
@@ -48,20 +47,6 @@ CORS = {
 
 
 def handler(event, _context):
-    claims = (
-        event.get("requestContext", {})
-        .get("authorizer", {})
-        .get("jwt", {})
-        .get("claims", {})
-    )
-    sub = claims.get("sub")
-    if not sub:
-        # Unreachable while the authorizer is attached. Checked anyway:
-        # a misconfigured route that skipped the authorizer would
-        # otherwise fall through to an empty session id shared by every
-        # anonymous caller.
-        return _reply(401, {"message": "Not authenticated."})
-
     try:
         body = json.loads(event.get("body") or "{}")
     except json.JSONDecodeError:
@@ -75,7 +60,7 @@ def handler(event, _context):
         # oversized prompt is refused before it is paid for.
         return _reply(413, {"message": "That message is too long."})
 
-    session_id = _session_for(sub)
+    session_id = _session_id(body.get("session_id"))
 
     try:
         result = _client.invoke_agent_runtime(
@@ -94,16 +79,15 @@ def handler(event, _context):
     return _reply(200, _decode(result))
 
 
-def _session_for(sub: str) -> str:
-    """A stable, per-user session id.
+def _session_id(candidate) -> str:
+    """A per-tab session id, supplied by the client or generated here.
 
-    Hashed so the Cognito subject itself never becomes an identifier in
-    AgentCore's storage: the session id appears in logs and traces, and
-    a raw `sub` there is a durable handle on a named employee.
-
-    AgentCore requires at least 33 characters; a sha256 hex digest is 64.
+    Not a trust boundary -- there is no auth left to enforce one. Only
+    shaped to what AgentCore's runtimeSessionId accepts.
     """
-    return "u-" + hashlib.sha256(sub.encode()).hexdigest()
+    if isinstance(candidate, str) and MIN_SESSION_ID_LEN <= len(candidate) <= MAX_SESSION_ID_LEN:
+        return candidate
+    return "s-" + uuid.uuid4().hex + uuid.uuid4().hex
 
 
 def _decode(result: dict) -> dict:
