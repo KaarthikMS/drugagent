@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Health Assistant</title>
+<style>
+  /* Palette. Severity is the only place colour carries meaning, so
+     everything else stays neutral -- a page that is already colourful
+     has nothing left to say when something is urgent. */
+  :root {
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --ink: #111418;
+    --ink-soft: #3d4450;
+    --muted: #6b7482;
+    --line: #e4e7ec;
+    --line-soft: #eef1f5;
+    --accent: #0f766e;
+    --accent-soft: #e6f4f1;
+
+    --low: #475569;      --low-bg: #f1f5f9;
+    --med: #92610a;      --med-bg: #fef6e7;
+    --high: #9a3412;     --high-bg: #fdf0ea;
+    --emerg-ink: #ffffff; --emerg-bg: #9f1239; --emerg-line: #7d0f2f;
+
+    --radius: 12px;
+    --shadow: 0 1px 2px rgba(16, 24, 40, .04), 0 1px 3px rgba(16, 24, 40, .06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1013;
+      --panel: #151a20;
+      --ink: #e8ebf0;
+      --ink-soft: #c2c9d4;
+      --muted: #8d97a5;
+      --line: #242b34;
+      --line-soft: #1c222a;
+      --accent: #5eead4;
+      --accent-soft: #10302c;
+
+      --low: #94a3b8;    --low-bg: #1a212a;
+      --med: #f0c469;    --med-bg: #2b2310;
+      --high: #fca88a;   --high-bg: #331810;
+      --emerg-ink: #ffffff; --emerg-bg: #9f1239; --emerg-line: #c81e4a;
+
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3);
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- header ---------- */
+  header {
+    position: sticky; top: 0; z-index: 10;
+    background: color-mix(in srgb, var(--panel) 88%, transparent);
+    backdrop-filter: saturate(180%) blur(12px);
+    border-bottom: 1px solid var(--line);
+  }
+  .header-inner {
+    max-width: 780px; margin: 0 auto;
+    padding: 14px 20px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .mark {
+    width: 30px; height: 30px; flex: none;
+    border-radius: 9px; background: var(--accent-soft);
+    display: grid; place-items: center;
+    color: var(--accent); font-weight: 700; font-size: 15px;
+  }
+  .titles h1 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -.01em; }
+  .titles p { margin: 1px 0 0; font-size: 12.5px; color: var(--muted); }
+
+  /* ---------- thread ---------- */
+  main { max-width: 780px; margin: 0 auto; padding: 26px 20px 190px; }
+
+  .intro {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 20px 22px; margin-bottom: 26px;
+  }
+  .intro h2 { margin: 0 0 8px; font-size: 15.5px; font-weight: 650; }
+  .intro p { margin: 0 0 10px; color: var(--ink-soft); }
+  .intro p:last-child { margin-bottom: 0; }
+  .intro .note { font-size: 13px; color: var(--muted); }
+
+  .msg { margin-bottom: 22px; }
+  .who {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11px; font-weight: 600; letter-spacing: .07em;
+    text-transform: uppercase; color: var(--muted);
+    margin-bottom: 7px;
+  }
+
+  .bubble {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 16px 18px;
+    color: var(--ink-soft);
+  }
+  .user .bubble {
+    background: var(--accent-soft);
+    border-color: transparent; box-shadow: none;
+    color: var(--ink);
+    white-space: pre-wrap;
+  }
+  .bubble.error {
+    white-space: pre-wrap;
+    background: var(--high-bg); border-color: transparent; color: var(--high);
+  }
+  .bubble.pending { color: var(--muted); }
+  .bubble.pending::after {
+    content: ''; display: inline-block; width: 6px; height: 6px;
+    margin-left: 6px; border-radius: 50%; background: currentColor;
+    animation: pulse 1.1s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%, 100% { opacity: .25 } 50% { opacity: 1 } }
+
+  /* rendered markdown */
+  .bubble p { margin: 0 0 11px; }
+  .bubble p:last-child { margin-bottom: 0; }
+  .bubble h4 {
+    margin: 16px 0 7px; font-size: 14px; font-weight: 650; color: var(--ink);
+  }
+  .bubble h4:first-child { margin-top: 0; }
+  .bubble ul, .bubble ol { margin: 0 0 11px; padding-left: 20px; }
+  .bubble li { margin-bottom: 5px; }
+  .bubble li::marker { color: var(--muted); }
+  .bubble strong { color: var(--ink); font-weight: 620; }
+  .bubble code {
+    background: var(--bg); border: 1px solid var(--line-soft);
+    border-radius: 5px; padding: 1px 5px; font-size: 13px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  .bubble pre {
+    background: var(--bg); border: 1px solid var(--line-soft);
+    border-radius: 9px; padding: 12px 14px; overflow-x: auto;
+    margin: 0 0 11px; font-size: 13px;
+  }
+  .bubble pre code { border: 0; padding: 0; background: none; }
+  .bubble a { color: var(--accent); text-underline-offset: 2px; }
+
+  /* ---------- severity ---------- */
+  .badge {
+    font-size: 10px; font-weight: 700; letter-spacing: .06em;
+    padding: 2.5px 8px; border-radius: 99px; text-transform: uppercase;
+  }
+  .badge.low { background: var(--low-bg); color: var(--low); }
+  .badge.medium { background: var(--med-bg); color: var(--med); }
+  .badge.high { background: var(--high-bg); color: var(--high); }
+  .badge.emergency { background: var(--emerg-bg); color: var(--emerg-ink); }
+
+  .escalation {
+    border-radius: var(--radius); padding: 14px 16px;
+    font-size: 14.5px; font-weight: 550; line-height: 1.55;
+    display: flex; gap: 11px; align-items: flex-start;
+  }
+  .escalation::before { content: '!'; flex: none; font-weight: 800; opacity: .65; }
+  .escalation.medium { background: var(--med-bg); color: var(--med); margin-top: 12px; }
+  .escalation.high { background: var(--high-bg); color: var(--high); margin-top: 12px; }
+  .escalation.emergency {
+    background: var(--emerg-bg); color: var(--emerg-ink);
+    border: 1px solid var(--emerg-line);
+    margin-bottom: 12px; font-size: 15.5px; font-weight: 600;
+    box-shadow: 0 4px 14px rgba(159, 18, 57, .22);
+  }
+
+  .caveat {
+    font-size: 13px; line-height: 1.55; color: var(--muted);
+    border-left: 2px solid var(--line); padding-left: 12px; margin-top: 12px;
+  }
+
+  .sources { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
+  .sources-label {
+    font-size: 10.5px; font-weight: 700; letter-spacing: .07em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 7px;
+  }
+  .sources a {
+    display: inline-block; font-size: 12.5px; color: var(--accent);
+    background: var(--accent-soft); border-radius: 7px;
+    padding: 5px 10px; margin: 0 6px 6px 0; text-decoration: none;
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .sources a:hover { text-decoration: underline; }
+
+  /* ---------- composer ---------- */
+  footer {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(to top,
+      var(--bg) 62%, color-mix(in srgb, var(--bg) 0%, transparent));
+    padding: 22px 20px 14px;
+  }
+  .composer-wrap { max-width: 780px; margin: 0 auto; }
+  .composer {
+    display: flex; gap: 9px; align-items: flex-end;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 14px; padding: 8px 8px 8px 14px;
+    box-shadow: var(--shadow);
+  }
+  .composer:focus-within { border-color: var(--accent); }
+  textarea {
+    flex: 1; resize: none; border: 0; outline: none; background: none;
+    color: var(--ink); font: inherit; padding: 9px 0;
+    min-height: 24px; max-height: 190px;
+  }
+  textarea::placeholder { color: var(--muted); }
+  button.send {
+    flex: none; border: 0; border-radius: 10px; height: 38px; padding: 0 18px;
+    background: var(--accent); color: #fff; font: inherit; font-weight: 600;
+    cursor: pointer;
+  }
+  button.send:disabled { opacity: .45; cursor: default; }
+
+  .examples { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .examples button {
+    background: var(--panel); color: var(--ink-soft);
+    border: 1px solid var(--line); border-radius: 99px;
+    font: inherit; font-size: 12.5px; padding: 5px 12px; cursor: pointer;
+  }
+  .examples button:hover { border-color: var(--accent); color: var(--accent); }
+
+  .disclaimer {
+    font-size: 11.5px; color: var(--muted); text-align: center; margin-top: 11px;
+  }
+
+  @media (max-width: 600px) {
+    main { padding: 18px 14px 210px; }
+    .header-inner { padding: 12px 14px; }
+    footer { padding: 18px 14px 12px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="mark" aria-hidden="true">+</div>
+    <div class="titles">
+      <h1>Health Assistant</h1>
+      <p>Medicines &middot; conditions &middot; symptoms &middot; lab results</p>
+    </div>
+  </div>
+</header>
+
+<main id="thread">
+  <div class="intro">
+    <h2>What I can help with</h2>
+    <p>Ask about a medicine (Indian brand names work), whether two medicines can be
+    taken together, what a condition is, symptoms you're having, or paste lab results.</p>
+    <p class="note">Every answer is quoted from official sources and linked, so you can
+    check it. I'm not a doctor &mdash; when something needs a clinician, I'll say so.</p>
+  </div>
+</main>
+
+<footer>
+  <div class="composer-wrap">
+    <div class="composer">
+      <textarea id="input" rows="1" placeholder="Ask about a medicine, a condition, or paste lab results&hellip;"></textarea>
+      <button class="send" id="send">Ask</button>
+    </div>
+    <div class="examples" id="examples"></div>
+    <div class="disclaimer">Information only &mdash; not a diagnosis. In an emergency call 112.</div>
+  </div>
+</footer>
+
+<!-- Written by scripts/write-frontend-config.sh from the deployed stack
+     outputs. Not secret: the API is unauthenticated by design (POC
+     scope, local-only frontend) but reveals nothing sensitive itself. -->
+<script src="config.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

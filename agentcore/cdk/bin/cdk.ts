@@ -56,23 +56,39 @@ async function main() {
 
   const app = new App();
 
+  // The API's CORS allow-list. Kept out of agentcore.json, which is
+  // schema validated by the CLI and has no place for it.
+  //
+  //   cdk deploy -c allowedOrigins=http://localhost:8080
+  //
+  // or set it in cdk.json under "context". Defaults to localhost:8080 --
+  // see AgentCoreStack.
+  const csv = (value: unknown): string[] =>
+    typeof value === 'string'
+      ? value
+          .split(',')
+          .map(s => s.trim())
+          .filter(Boolean)
+      : [];
+
+  const allowedOrigins = csv(app.node.tryGetContext('allowedOrigins'));
+
   for (const target of targets) {
     const env = toEnvironment(target);
     const stackName = toStackName(spec.name, target.name);
 
     // Extract credentials from deployed state for this target
     const targetState = (deployedState as Record<string, unknown>)?.targets as
-      | Record<string, Record<string, unknown>>
-      | undefined;
+      Record<string, Record<string, unknown>> | undefined;
     const targetResources = targetState?.[target.name]?.resources as Record<string, unknown> | undefined;
     const credentials = targetResources?.credentials as
-      | Record<string, { credentialProviderArn: string; clientSecretArn?: string }>
-      | undefined;
+      Record<string, { credentialProviderArn: string; clientSecretArn?: string }> | undefined;
 
     new AgentCoreStack(app, stackName, {
       spec,
       mcpSpec,
       credentials,
+      allowedOrigins,
       env,
       description: `AgentCore stack for ${spec.name} deployed to ${target.name} (${target.region})`,
       tags: {

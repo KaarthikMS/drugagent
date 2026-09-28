@@ -1,0 +1,178 @@
+{
+  "name": "pharmaagent-health-assistant",
+  "description": "Health information assistant for employees. Scope control and PII redaction ONLY -- clinical safety (escalation, severity, the 'not documented is not safe' contract) is enforced in Python, not here.",
+  "topicPolicyConfig": {
+    "topicsConfig": [
+      {
+        "name": "Diagnosis",
+        "type": "DENY",
+        "definition": "Asking the assistant to name which illness the user personally has or does not have, judging from their own symptoms, history or results.",
+        "examples": [
+          "Do I have diabetes?",
+          "Based on my symptoms, is it dengue or typhoid?",
+          "Tell me what's wrong with me",
+          "Is this cancer?",
+          "What disease do I have?"
+        ],
+        "inputEnabled": true,
+        "outputEnabled": false
+      },
+      {
+        "name": "Prescribing and dose changes",
+        "type": "DENY",
+        "definition": "Recommending that someone start, stop, switch or change the dose of a medicine, including one already prescribed. Reporting dosing text printed on an official label is NOT this topic.",
+        "examples": [
+          "Should I stop taking my blood pressure tablets?",
+          "Can I double my dose since it isn't working?",
+          "Which antibiotic should I take for this?",
+          "Is it okay to skip my thyroid medicine this week?",
+          "Prescribe me something for the pain"
+        ],
+        "inputEnabled": true,
+        "outputEnabled": false
+      },
+      {
+        "name": "Obtaining medicines without a prescription",
+        "type": "DENY",
+        "definition": "Help acquiring prescription-only or controlled medicines outside a lawful prescription: where to buy them, how to get them without a doctor, or how to obtain a prescription by deception.",
+        "examples": [
+          "Where can I buy tramadol without a prescription?",
+          "How do I get alprazolam without seeing a doctor?",
+          "Which pharmacy will sell antibiotics without a prescription?",
+          "What should I tell a doctor to get sleeping pills?"
+        ],
+        "inputEnabled": true,
+        "outputEnabled": false
+      },
+      {
+        "name": "Fitness for duty and medical certificates",
+        "type": "DENY",
+        "definition": "Requests for a sick note, medical certificate, or an opinion on whether someone is fit to work, drive or travel. This system is employer-provided and must not give such opinions.",
+        "examples": [
+          "Write me a sick note for two days",
+          "Am I fit to return to work?",
+          "Can you certify that I was unwell?",
+          "Am I fit to drive on these tablets?"
+        ],
+        "inputEnabled": true,
+        "outputEnabled": false
+      },
+      {
+        "name": "Medical advice about another person",
+        "type": "DENY",
+        "definition": "Assessment, triage or advice about a specific other person - a colleague, family member or child - rather than the person asking. General information about a condition is NOT this topic.",
+        "examples": [
+          "My daughter has a fever of 39, what should I give her?",
+          "My colleague is on lithium, is he safe to work?",
+          "My father collapsed, what should we do at home?",
+          "How much of this should I give my 3-year-old?"
+        ],
+        "inputEnabled": true,
+        "outputEnabled": false
+      }
+    ]
+  },
+  "contentPolicyConfig": {
+    "filtersConfig": [
+      {
+        "type": "PROMPT_ATTACK",
+        "inputStrength": "HIGH",
+        "outputStrength": "NONE"
+      },
+      {
+        "type": "VIOLENCE",
+        "inputStrength": "NONE",
+        "outputStrength": "LOW"
+      },
+      {
+        "type": "SEXUAL",
+        "inputStrength": "NONE",
+        "outputStrength": "LOW"
+      },
+      {
+        "type": "HATE",
+        "inputStrength": "MEDIUM",
+        "outputStrength": "HIGH"
+      },
+      {
+        "type": "INSULTS",
+        "inputStrength": "NONE",
+        "outputStrength": "MEDIUM"
+      },
+      {
+        "type": "MISCONDUCT",
+        "inputStrength": "NONE",
+        "outputStrength": "MEDIUM"
+      }
+    ]
+  },
+  "wordPolicyConfig": {
+    "managedWordListsConfig": [
+      {
+        "type": "PROFANITY"
+      }
+    ]
+  },
+  "sensitiveInformationPolicyConfig": {
+    "piiEntitiesConfig": [
+      {
+        "type": "NAME",
+        "action": "ANONYMIZE"
+      },
+      {
+        "type": "EMAIL",
+        "action": "ANONYMIZE"
+      },
+      {
+        "type": "PHONE",
+        "action": "ANONYMIZE"
+      },
+      {
+        "type": "ADDRESS",
+        "action": "ANONYMIZE"
+      },
+      {
+        "type": "CREDIT_DEBIT_CARD_NUMBER",
+        "action": "BLOCK"
+      },
+      {
+        "type": "AWS_ACCESS_KEY",
+        "action": "BLOCK"
+      },
+      {
+        "type": "AWS_SECRET_KEY",
+        "action": "BLOCK"
+      },
+      {
+        "type": "PASSWORD",
+        "action": "BLOCK"
+      }
+    ],
+    "regexesConfig": [
+      {
+        "name": "Aadhaar number",
+        "description": "12-digit Indian national identity number",
+        "pattern": "\\b[2-9][0-9]{3}\\s?[0-9]{4}\\s?[0-9]{4}\\b",
+        "action": "ANONYMIZE"
+      },
+      {
+        "name": "PAN",
+        "description": "Indian permanent account number",
+        "pattern": "\\b[A-Z]{5}[0-9]{4}[A-Z]\\b",
+        "action": "ANONYMIZE"
+      }
+    ]
+  },
+  "blockedInputMessaging": "I can't help with that one. I can explain what a medicine or condition is, check whether an interaction is documented, and read lab results -- but I can't diagnose, recommend or change treatment, or give an opinion about someone else. For anything in that territory, please speak to a doctor or pharmacist. If this is urgent, call 112.",
+  "blockedOutputsMessaging": "I started to answer and stopped, because the answer was heading somewhere I shouldn't go. Please ask a doctor or pharmacist about this. If this is urgent, call 112.",
+  "tags": [
+    {
+      "key": "agentcore:project-name",
+      "value": "pharmaagent"
+    },
+    {
+      "key": "purpose",
+      "value": "health-assistant-poc"
+    }
+  ]
+}

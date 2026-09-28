@@ -14,6 +14,16 @@
       "entrypoint": "main.py",
       "codeLocation": "app/drugagent/",
       "runtimeVersion": "PYTHON_3_14",
+      "envVars": [
+        {
+          "name": "GUARDRAIL_ID",
+          "value": "4xo8hb0f7iyl"
+        },
+        {
+          "name": "GUARDRAIL_VERSION",
+          "value": "2"
+        }
+      ],
       "networkMode": "PUBLIC",
       "protocol": "HTTP"
     }
@@ -26,5 +36,8 @@
   "policyEngines": [],
   "configBundles": [],
   "abTests": [],
-  "httpGateways": []
+  "httpGateways": [],
+  "harnesses": [],
+  "datasets": [],
+  "payments": []
 }

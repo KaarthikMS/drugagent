@@ -5,22 +5,47 @@ build-backend = "hatchling.build"
 [project]
 name = "drugagent"
 version = "0.1.0"
-description = "AgentCore Runtime Application using Strands SDK"
+description = "Health assistant agent — medicines, conditions, symptoms and lab results"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "aws-opentelemetry-distro",
+    # AgentCore Runtime entrypoint.
     "bedrock-agentcore >= 1.0.3",
-    "botocore[crt] >= 1.35.0",
-    "mcp >= 1.19.0",
+    # Agent framework and Bedrock model binding.
     "strands-agents[otel]>=1.13.0",
-    "requests>=2.32.0",
-    # OpenTelemetry
+    # CloudWatch custom metrics.
+    "boto3>=1.35.0",
+    # Async HTTP. Replaces `requests`: sync calls inside the async
+    # entrypoint block the event loop and serialise every request that
+    # the runtime handles concurrently.
+    "httpx>=0.27.0",
+    "tenacity>=9.0.0",
+    # Traces and metrics. The RUNTIME owns the providers: the distro
+    # configures them and this app only ever asks the API for a tracer
+    # and a meter. The SDK and OTLP exporter packages are deliberately
+    # absent -- constructing a provider here would override the
+    # runtime's and silently detach every span from its trace.
+    "aws-opentelemetry-distro",
     "opentelemetry-api>=1.36.0",
-    "opentelemetry-sdk>=1.36.0",
-    "opentelemetry-exporter-otlp-proto-http>=1.36.0",
-    "opentelemetry-semantic-conventions>=0.57b0",
+    "defusedxml>=0.7.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]
+
+[tool.pytest.ini_options]
+# Tests import `clients`, `config`, `domain` as top-level modules, the
+# same way the deployed entrypoint does. Rooting pytest here keeps the
+# import path identical between test and runtime.
+pythonpath = ["."]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+    "smoke: hits a real public API over the network (deselect with -m 'not smoke')",
+]
